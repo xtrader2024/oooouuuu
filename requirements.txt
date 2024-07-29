@@ -5,4 +5,5 @@ matplotlib
 statsmodels
 python-binance
 flask
-pycoingecko
+asyncio
+websockets
