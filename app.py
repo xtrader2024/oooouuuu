@@ -22,7 +22,8 @@ STOCH_SLOWK_PERIOD = 3
 
 def get_coingecko_data(symbol, start_date, end_date):
     try:
-        data = cg.get_coin_market_chart_range_range_range(id=symbol, vs_currency='usd', from_timestamp=start_date, to_timestamp=end_date)
+        # CoinGecko API'ye tarih aralığı ve USD karşılığı belirlenerek veri çekilir
+        data = cg.get_coin_market_chart_range_range_range_range_range_range_range_range_range(id=symbol, vs_currency='usd', from_timestamp=start_date, to_timestamp=end_date)
         if not data or 'prices' not in data:
             return pd.DataFrame()
         df = pd.DataFrame(data['prices'], columns=['timestamp', 'price'])
@@ -167,7 +168,7 @@ for symbol in symbols:
     st.write(f'**Beklenen Artış Yüzdesi:** {expected_increase_percentage:.2f}%')
     st.write(f'**Giriş Fiyatı:** ${entry_price:.2f}')
     st.write(f'**Kar Alma Fiyatı:** ${take_profit_price:.2f}')
-    st.write(f'**Zarar Kes Fiyatı:** ${stop_loss_price:.2f}')
+    st.write(f'**Zarar Durdur Fiyatı:** ${stop_loss_price:.2f}')
 
     plot_image = plot_to_png(df, symbol)
     st.image(f"data:image/png;base64,{plot_image}", use_column_width=True)
