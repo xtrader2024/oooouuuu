@@ -1,3 +1,4 @@
+import ccxt
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -5,11 +6,16 @@ import io
 import base64
 from datetime import datetime, timedelta
 import statsmodels.api as sm
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
-from pycoingecko import CoinGeckoAPI
 
-# CoinGecko API nesnesi oluşturuluyor
-cg = CoinGeckoAPI()
+# Binance API keys
+api_key = 'TAAgJilKcF9LHg977hGa3fVXdd9TUv6EmaZu7YgkCa4f8aAcxT5lvRI1gkh8mvw2'
+api_secret = 'Yw48JHkJu3dz0YpJrPJz9ektNHUvYZtNePTeQLzDAe0CRk33wyKbebyRV0q4xwJk'
+exchange = ccxt.binance({
+    'apiKey': api_key,
+    'secret': api_secret,
+})
 
 # Göstergeler için sabitler
 RSI_TIME_PERIOD = 14
@@ -20,20 +26,16 @@ BOLLINGER_WINDOW = 20
 STOCH_FASTK_PERIOD = 14
 STOCH_SLOWK_PERIOD = 3
 
-def get_coingecko_data(symbol, start_date, end_date):
+def get_binance_data(symbol, interval, start_str, end_str):
     try:
-        # CoinGecko API'ye tarih aralığı ve USD karşılığı belirlenerek veri çekilir
-        data = cg.get_coin_market_chart_range_range_range_range_range_range_range_range_range(id=symbol, vs_currency='usd', from_timestamp=start_date, to_timestamp=end_date)
-        if not data or 'prices' not in data:
+        klines = exchange.fetch_ohlcv(symbol, interval, since=exchange.parse8601(start_str), limit=1000)
+        if not klines or len(klines) < 51:
             return pd.DataFrame()
-        df = pd.DataFrame(data['prices'], columns=['timestamp', 'price'])
+        df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         df.set_index('timestamp', inplace=True)
-        df = df.rename(columns={'price': 'close'})
-        df['open'] = df['close']
-        df['high'] = df['close']
-        df['low'] = df['close']
-        df['volume'] = np.nan  # Volume data is not available in CoinGecko
+        df = df[['open', 'high', 'low', 'close', 'volume']]
+        df = df.astype(float)
         return df
     except Exception as e:
         st.error(f"Veri çekme hatası ({symbol}): {e}")
@@ -113,6 +115,16 @@ def calculate_trade_levels(df, entry_pct=0.02, take_profit_pct=0.05, stop_loss_p
     
     return entry_price, take_profit_price, stop_loss_price
 
+def get_all_usdt_pairs():
+    try:
+        exchange_info = exchange.load_markets()
+        symbols = exchange_info.keys()
+        usdt_pairs = [s for s in symbols if s.endswith('/USDT')]
+        return usdt_pairs
+    except Exception as e:
+        st.error(f"USDT pariteleri çekme hatası: {e}")
+        return []
+
 def plot_to_png(df, symbol):
     fig, ax = plt.subplots(figsize=(14, 7))
     ax.plot(df.index, df['close'], label='Kapanış Fiyatı', color='blue')
@@ -134,41 +146,88 @@ def plot_to_png(df, symbol):
     img_base64 = base64.b64encode(img.getvalue()).decode('utf-8')
     return img_base64
 
-# Streamlit Arayüzü
-st.title('Kripto Para Analizi')
-
-# Kullanıcıdan zaman aralığı seçimi
-interval = st.selectbox('Zaman Aralığı', ['1d', '7d', '30d', '90d', '365d'])
-
-# Tarih aralığı hesaplanıyor
-end_date = datetime.now()
-start_date = end_date - timedelta(days=51)
-start_timestamp = int(start_date.timestamp())
-end_timestamp = int(end_date.timestamp())
-
-# Kripto paralar için liste alınıyor
-symbols = ['bitcoin', 'ethereum', 'cardano']  # Buraya CoinGecko'dan desteklenen diğer coinleri ekleyebilirsiniz
-
-for symbol in symbols:
-    st.subheader(f'{symbol.upper()} Analizi')
-
-    df = get_coingecko_data(symbol, start_timestamp, end_timestamp)
+def process_symbol(symbol, interval, start_str, end_str):
+    df = get_binance_data(symbol, interval, start_str, end_str)
     if df.empty:
-        st.write("Veri alınamadı.")
-        continue
+        return None
 
-    df = calculate_indicators(df)
-    df = generate_signals(df)
-    forecast = forecast_next_price(df)
-    expected_price, expected_increase_percentage = calculate_expected_price(df)
-    entry_price, take_profit_price, stop_loss_price = calculate_trade_levels(df)
+    try:
+        df = calculate_indicators(df)
+        df = generate_signals(df)
+        forecast = forecast_next_price(df)
+        expected_price, expected_increase_percentage = calculate_expected_price(df)
+        entry_price, take_profit_price, stop_loss_price = calculate_trade_levels(df)
+        
+        if df['Buy_Signal'].iloc[-1] and expected_increase_percentage >= 5:
+            return {
+                'coin_name': symbol,
+                'price': df['close'].iloc[-1],
+                'expected_price': expected_price,
+                'expected_increase_percentage': expected_increase_percentage,
+                'sma_50': df['SMA_50'].iloc[-1],
+                'rsi_14': df['RSI'].iloc[-1],
+                'macd_line': df['MACD_Line'].iloc[-1],
+                'macd_signal': df['MACD_Signal'].iloc[-1],
+                'bb_upper': df['BB_Upper'].iloc[-1],
+                'bb_middle': df['BB_Middle'].iloc[-1],
+                'bb_lower': df['BB_Lower'].iloc[-1],
+                'atr': df['ATR'].iloc[-1],
+                'stoch_k': df['%K'].iloc[-1],
+                'stoch_d': df['%D'].iloc[-1],
+                'forecast_next_day_price': forecast,
+                'entry_price': entry_price,
+                'take_profit_price': take_profit_price,
+                'stop_loss_price': stop_loss_price,
+                'plot': plot_to_png(df, symbol)
+            }
+    except Exception as e:
+        st.error(f"İşleme hatası ({symbol}): {e}")
+        return None
 
-    st.write(f'**Son Kapanış Fiyatı:** ${df["close"].iloc[-1]:.2f}')
-    st.write(f'**Beklenen Fiyat:** ${expected_price:.2f}')
-    st.write(f'**Beklenen Artış Yüzdesi:** {expected_increase_percentage:.2f}%')
-    st.write(f'**Giriş Fiyatı:** ${entry_price:.2f}')
-    st.write(f'**Kar Alma Fiyatı:** ${take_profit_price:.2f}')
-    st.write(f'**Zarar Durdur Fiyatı:** ${stop_loss_price:.2f}')
+def main():
+    st.title('Kripto Para Analizi')
+    
+    interval = st.selectbox('Zaman Aralığı', ['1d', '1h', '30m', '15m', '5m', '1m'], index=0)
+    
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=51)
+    start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S')
+    end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S')
+    
+    if st.button('Analiz Başlat'):
+        usdt_pairs = get_all_usdt_pairs()
+        if not usdt_pairs:
+            st.error("USDT paritesi bulunamadı.")
+            return
+        
+        with ThreadPoolExecutor() as executor:
+            future_to_symbol = {executor.submit(process_symbol, symbol, interval, start_str, end_str): symbol for symbol in usdt_pairs}
+            results = []
+            for future in as_completed(future_to_symbol):
+                result = future.result()
+                if result:
+                    results.append(result)
+        
+        for result in results:
+            st.subheader(f"{result['coin_name']} Analizi")
+            st.write(f"Mevcut Fiyat: ${result['price']:.2f}")
+            st.write(f"Beklenen Fiyat: ${result['expected_price']:.2f}")
+            st.write(f"Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
+            st.write(f"SMA 50: ${result['sma_50']:.2f}")
+            st.write(f"RSI 14: {result['rsi_14']:.2f}")
+            st.write(f"MACD Line: {result['macd_line']:.2f}")
+            st.write(f"MACD Signal: {result['macd_signal']:.2f}")
+            st.write(f"BB Üst Bandı: ${result['bb_upper']:.2f}")
+            st.write(f"BB Orta Bandı: ${result['bb_middle']:.2f}")
+            st.write(f"BB Alt Bandı: ${result['bb_lower']:.2f}")
+            st.write(f"ATR: {result['atr']:.2f}")
+            st.write(f"Stochastic %K: {result['stoch_k']:.2f}")
+            st.write(f"Stochastic %D: {result['stoch_d']:.2f}")
+            st.write(f"Öngörülen Ertesi Gün Fiyatı: ${result['forecast_next_day_price']:.2f}")
+            st.write(f"Giriş Fiyatı: ${result['entry_price']:.2f}")
+            st.write(f"Kar Alma Fiyatı: ${result['take_profit_price']:.2f}")
+            st.write(f"Zarar Durdur Fiyatı: ${result['stop_loss_price']:.2f}")
+            st.image(f"data:image/png;base64,{result['plot']}", use_column_width=True)
 
-    plot_image = plot_to_png(df, symbol)
-    st.image(f"data:image/png;base64,{plot_image}", use_column_width=True)
+if __name__ == '__main__':
+    main()
