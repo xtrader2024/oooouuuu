@@ -7,9 +7,7 @@ import base64
 from datetime import datetime, timedelta
 import statsmodels.api as sm
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from flask import Flask, render_template, request
-
-app = Flask(__name__)
+import streamlit as st
 
 # Binance API keys
 api_key = 'TAAgJilKcF9LHg977hGa3fVXdd9TUv6EmaZu7YgkCa4f8aAcxT5lvRI1gkh8mvw2'
@@ -40,7 +38,7 @@ def get_binance_data(symbol, interval, start_str, end_str):
         df = df.astype(float)
         return df
     except Exception as e:
-        print(f"Veri çekme hatası ({symbol}): {e}")
+        st.error(f"Veri çekme hatası ({symbol}): {e}")
         return pd.DataFrame()
 
 def calculate_indicators(df):
@@ -124,7 +122,7 @@ def get_all_usdt_pairs():
         usdt_pairs = [s for s in symbols if s.endswith('/USDT')]
         return usdt_pairs
     except Exception as e:
-        print(f"USDT pariteleri çekme hatası: {e}")
+        st.error(f"USDT pariteleri çekme hatası: {e}")
         return []
 
 def plot_to_png(df, symbol):
@@ -183,32 +181,53 @@ def process_symbol(symbol, interval, start_str, end_str):
                 'plot': plot_to_png(df, symbol)
             }
     except Exception as e:
-        print(f"İşleme hatası ({symbol}): {e}")
+        st.error(f"İşleme hatası ({symbol}): {e}")
         return None
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    results = []
-    if request.method == 'POST':
-        interval = request.form.get('interval', '1d')
-
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=51)
-        start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S')
-        end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S')
-
+def main():
+    st.title('Kripto Para Analizi')
+    
+    interval = st.selectbox('Zaman Aralığı', ['1d', '1h', '30m', '15m', '5m', '1m'], index=0)
+    
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=51)
+    start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S')
+    end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S')
+    
+    if st.button('Analiz Başlat'):
         usdt_pairs = get_all_usdt_pairs()
         if not usdt_pairs:
-            return render_template('index.html', message="USDT paritesi bulunamadı.")
-
+            st.error("USDT paritesi bulunamadı.")
+            return
+        
         with ThreadPoolExecutor() as executor:
             future_to_symbol = {executor.submit(process_symbol, symbol, interval, start_str, end_str): symbol for symbol in usdt_pairs}
+            results = []
             for future in as_completed(future_to_symbol):
                 result = future.result()
                 if result:
                     results.append(result)
-
-    return render_template('index.html', selected_coins_data=results)
+        
+        for result in results:
+            st.subheader(f"{result['coin_name']} Analizi")
+            st.write(f"Mevcut Fiyat: ${result['price']:.2f}")
+            st.write(f"Beklenen Fiyat: ${result['expected_price']:.2f}")
+            st.write(f"Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
+            st.write(f"SMA 50: ${result['sma_50']:.2f}")
+            st.write(f"RSI 14: {result['rsi_14']:.2f}")
+            st.write(f"MACD Line: {result['macd_line']:.2f}")
+            st.write(f"MACD Signal: {result['macd_signal']:.2f}")
+            st.write(f"BB Üst Bandı: ${result['bb_upper']:.2f}")
+            st.write(f"BB Orta Bandı: ${result['bb_middle']:.2f}")
+            st.write(f"BB Alt Bandı: ${result['bb_lower']:.2f}")
+            st.write(f"ATR: {result['atr']:.2f}")
+            st.write(f"Stochastic %K: {result['stoch_k']:.2f}")
+            st.write(f"Stochastic %D: {result['stoch_d']:.2f}")
+            st.write(f"Öngörülen Ertesi Gün Fiyatı: ${result['forecast_next_day_price']:.2f}")
+            st.write(f"Giriş Fiyatı: ${result['entry_price']:.2f}")
+            st.write(f"Kar Alma Fiyatı: ${result['take_profit_price']:.2f}")
+            st.write(f"Zarar Durdur Fiyatı: ${result['stop_loss_price']:.2f}")
+            st.image(f"data:image/png;base64,{result['plot']}", use_column_width=True)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    main()
