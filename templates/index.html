@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kripto Para Analizi</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            padding-top: 60px;
+            font-size: 16px;
+        }
+        .table thead th {
+            font-size: 14px;
+        }
+        .table tbody td {
+            font-size: 14px;
+        }
+        .plot-image {
+            max-width: 100%;
+            height: auto;
+        }
+        .detailed-analysis-row {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="text-center">Kripto Para Analizi</h1>
+        <form method="post" class="mb-4">
+            <div class="form-group">
+                <label for="interval">Zaman Aralığı:</label>
+                <select id="interval" name="interval" class="form-control">
+                    <option value="4h">4 Saatlik</option>
+                    <!-- Diğer zaman aralıkları buraya eklenebilir -->
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Verileri Getir</button>
+        </form>
+        
+        {% if selected_coins_data %}
+            <h3>Alım Sinyali Veren Coinler</h3>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>Simge</th>
+                            <th>Fiyat</th>
+                            <th>Beklenen Fiyat (24 saat)</th>
+                            <th>Beklenen Artış Yüzdesi</th>
+                            <th>Giriş Fiyatı</th>
+                            <th>Kar Alma Fiyatı</th>
+                            <th>Stop Loss Fiyatı</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for coin in selected_coins_data %}
+                        <tr>
+                            <td>{{ coin.coin_name }}</td>
+                            <td>{{ coin.price }}</td>
+                            <td>{{ coin.expected_price }}</td>
+                            <td>% {{ coin.expected_increase_percentage }}</td>
+                            <td>{{ coin.entry_price }}</td>
+                            <td>{{ coin.take_profit_price }}</td>
+                            <td>{{ coin.stop_loss_price }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-info show-analysis-btn" data-coin-name="{{ coin.coin_name }}">Analizi Göster</button>
+                            </td>
+                        </tr>
+                        <tr class="detailed-analysis-row" id="detailed-analysis-{{ coin.coin_name }}">
+                            <td colspan="8">
+                                <h4>Detaylı Analiz: {{ coin.coin_name }}</h4>
+                                <p>Fiyat: {{ coin.price }}</p>
+                                <p>Beklenen Fiyat (24 saat): {{ coin.expected_price }}</p>
+                                <p>Beklenen Artış Yüzdesi: % {{ coin.expected_increase_percentage }}</p>
+                                <p>Giriş Fiyatı: {{ coin.entry_price }}</p>
+                                <p>Kar Alma Fiyatı: {{ coin.take_profit_price }}</p>
+                                <p>Stop Loss Fiyatı: {{ coin.stop_loss_price }}</p>
+                                <p>SMA 50: {{ coin.sma_50 }}</p>
+                                <p>RSI 14: {{ coin.rsi_14 }}</p>
+                                <p>MACD Çizgisi: {{ coin.macd_line }}</p>
+                                <p>MACD Sinyali: {{ coin.macd_signal }}</p>
+                                <p>Bollinger Üst Bandı: {{ coin.bb_upper }}</p>
+                                <p>Bollinger Orta Bandı: {{ coin.bb_middle }}</p>
+                                <p>Bollinger Alt Bandı: {{ coin.bb_lower }}</p>
+                                <p>ATR: {{ coin.atr }}</p>
+                                <p>Stochastic %K: {{ coin.stoch_k }}</p>
+                                <p>Stochastic %D: {{ coin.stoch_d }}</p>
+                                <p>Gelecek Günün Tahmini Fiyatı: {{ coin.forecast_next_day_price }}</p>
+                                <div class="text-center">
+                                    <img src="data:image/png;base64,{{ coin.plot }}" class="plot-image" alt="Grafik">
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-center">Henüz herhangi bir veri bulunmamaktadır. Lütfen zaman aralığını seçip "Verileri Getir" butonuna tıklayın.</p>
+        {% endif %}
+    </div>
+
+    <!-- Bootstrap JS ve jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.show-analysis-btn').click(function() {
+                var coinName = $(this).data('coin-name');
+                $('#detailed-analysis-' + coinName).toggle();
+            });
+        });
+    </script>
+</body>
+</html>
