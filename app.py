@@ -118,11 +118,16 @@ def calculate_trade_levels(df, entry_pct=0.02, take_profit_pct=0.05, stop_loss_p
 def get_all_usdt_pairs():
     try:
         exchange_info = exchange.load_markets()
-        symbols = exchange_info.keys()
-        usdt_pairs = [s for s in symbols if s.endswith('/USDT')]
+        usdt_pairs = [s for s in exchange_info if s.endswith('/USDT')]
         return usdt_pairs
+    except ccxt.NetworkError as e:
+        st.error(f"Network hatası: {e}")
+        return []
+    except ccxt.ExchangeError as e:
+        st.error(f"Exchange hatası: {e}")
+        return []
     except Exception as e:
-        st.error(f"USDT pariteleri çekme hatası: {e}")
+        st.error(f"Genel hata: {e}")
         return []
 
 def plot_to_png(df, symbol):
