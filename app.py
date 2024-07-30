@@ -1,45 +1,45 @@
-import ccxt
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import io
-import base64
-from datetime import datetime, timedelta
-import statsmodels.api as sm
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
+import requests
+import statsmodels.api as sm
+from datetime import datetime, timedelta
 
-# USDT pariteleri
+# CoinGecko API URL'si
+COINGECKO_API_URL = "https://api.coingecko.com/api/v3/"
+
+# USDT pariteleri - CoinGecko'daki coin isimleri
 USDT_PAIRS = [
-    "BTC/USDT", "ETH/USDT", "BNB/USDT", "NEO/USDT", "LTC/USDT",
-    "QTUM/USDT", "ADA/USDT", "XRP/USDT", "EOS/USDT", "TUSD/USDT",
-    "IOTA/USDT", "XLM/USDT", "ONT/USDT", "TRX/USDT", "ETC/USDT",
-    "ICX/USDT", "NULS/USDT", "VET/USDT", "USDC/USDT", "LINK/USDT",
-    "ONG/USDT", "HOT/USDT", "ZIL/USDT", "ZRX/USDT", "FET/USDT",
-    "BAT/USDT", "ZEC/USDT", "IOST/USDT", "CELR/USDT", "DASH/USDT",
-    "MATIC/USDT", "ATOM/USDT", "TFUEL/USDT", "ONE/USDT", "FTM/USDT",
-    "ALGO/USDT", "DOGE/USDT", "DUSK/USDT", "ANKR/USDT", "WIN/USDT",
-    "COS/USDT", "MTL/USDT", "DENT/USDT", "KEY/USDT", "WAN/USDT",
-    "FUN/USDT", "CVC/USDT", "CHZ/USDT", "BAND/USDT", "XTZ/USDT",
-    "REN/USDT", "RVN/USDT", "HBAR/USDT", "NKN/USDT", "STX/USDT",
-    "KAVA/USDT", "ARPA/USDT", "IOTX/USDT", "RLC/USDT", "CTXC/USDT",
-    "BCH/USDT", "TROY/USDT", "VITE/USDT", "FTT/USDT", "EUR/USDT",
-    "OGN/USDT", "WRX/USDT", "LSK/USDT", "BNT/USDT", "LTO/USDT",
-    "MBL/USDT", "COTI/USDT", "STPT/USDT", "DATA/USDT", "SOL/USDT",
-    "CTSI/USDT", "HIVE/USDT", "CHR/USDT", "ARDR/USDT", "MDT/USDT",
-    "STMX/USDT", "KNC/USDT", "LRC/USDT", "COMP/USDT", "SC/USDT",
-    "ZEN/USDT", "SNX/USDT", "VTHO/USDT", "DGB/USDT", "SXP/USDT",
-    "MKR/USDT", "DCR/USDT", "STORJ/USDT", "MANA/USDT", "YFI/USDT",
-    "BAL/USDT", "BLZ/USDT", "IRIS/USDT", "KMD/USDT", "JST/USDT",
-    "SAND/USDT", "NMR/USDT", "DOT/USDT", "LUNA/USDT", "RSR/USDT",
-    "PAXG/USDT", "TRB/USDT", "SUSHI/USDT", "KSM/USDT", "EGLD/USDT",
-    "DIA/USDT", "RUNE/USDT", "FIO/USDT", "UMA/USDT", "BEL/USDT",
-    "WING/USDT", "UNI/USDT", "OXT/USDT", "SUN/USDT", "AVAX/USDT",
-    "FLM/USDT", "ORN/USDT", "UTK/USDT", "XVS/USDT", "ALPHA/USDT",
-    "AAVE/USDT", "NEAR/USDT", "INJ/USDT", "AUDIO/USDT", "CTK/USDT",
-    "AKRO/USDT", "AXS/USDT", "HARD/USDT", "STRAX/USDT", "UNFI/USDT",
-    "ROSE/USDT", "AVA/USDT", "SKL/USDT", "SUSD/USDT", "XLMUP/USDT",
-    "XLMDOWN/USDT"
+    "bitcoin", "ethereum", "binancecoin", "neo", "litecoin",
+    "qtum", "cardano", "ripple", "eos", "tusd",
+    "iota", "stellar", "ontology", "tron", "ethereum-classic",
+    "icon", "nuls", "vechain", "usd-coin", "link",
+    "on-g", "hot", "zil", "zrx", "fet",
+    "bat", "zec", "iost", "celer-network", "dash",
+    "matic-network", "cosmos", "theta-fuel", "harmony", "fantom",
+    "algorand", "dogecoin", "dusk-network", "ankr", "wink",
+    "cosmos", "metal", "dent", "coti", "wanchain",
+    "funfair", "civic", "chiliz", "band-protocol", "tezos",
+    "ren", "ravencoin", "hedera", "nkn", "stx",
+    "kava", "arpa-chain", "iotex", "rlc", "cyc",
+    "bitcoin-cash", "troy", "vite", "ftx-token", "euro",
+    "origin-protocol", "wazirx", "lisk", "bancor", "lto-network",
+    "mbl", "coti", "stpt", "data", "solana",
+    "covalent", "hive", "cherry-token", "ardor", "meditat",
+    "stmx", "kyber-network", "loopring", "compound", "siacoin",
+    "zen", "synths-network", "vechain-thor", "digibyte", "swipe",
+    "maker", "decred", "storj", "decentraland", "yearn-finance",
+    "balancer", "bluzelle", "iris-network", "komodo", "just",
+    "sand", "numeraire", "polkadot", "terra-luna", "reserve-rights",
+    "pax-gold", "thrive", "sushi", "kusama", "elrond",
+    "dia", "thorchain", "firo", "uma", "bella-protocol",
+    "wing-finance", "uniswap", "oxt", "sun", "avalanche",
+    "fluence", "orion-protocol", "utrust", "venus", "alpha-finance",
+    "aave", "near", "injective-protocol", "audius", "certik",
+    "akropolis", "axie-infinity", "hard-protocol", "stratis", "unifi",
+    "rose", "ava", "skale", "sushi", "xrp-up",
+    "xlm-down"
 ]
 
 # Göstergeler için sabitler
@@ -51,14 +51,36 @@ BOLLINGER_WINDOW = 20
 STOCH_FASTK_PERIOD = 14
 STOCH_SLOWK_PERIOD = 3
 
-def fetch_data(symbol, interval='1d', lookback=365):
-    exchange = ccxt.binance()
-    since = exchange.parse8601((datetime.utcnow() - timedelta(days=lookback)).isoformat())
-    ohlcv = exchange.fetch_ohlcv(symbol, timeframe=interval, since=since)
+def fetch_data(symbol, interval='daily', lookback=365):
+    symbol = symbol.split('/')[0].lower()  # CoinGecko için sadece ilk kısmı kullan
+    granularity = 'daily' if interval == 'daily' else 'hourly'
     
-    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=lookback)
+    start_timestamp = int(start_date.timestamp())
+    end_timestamp = int(end_date.timestamp())
+
+    url = f"{COINGECKO_API_URL}coins/{symbol}/market_chart/range"
+    params = {
+        'vs_currency': 'usd',
+        'from': start_timestamp,
+        'to': end_timestamp
+    }
+
+    response = requests.get(url, params=params)
+    data = response.json()
+    
+    prices = data['prices']
+    
+    df = pd.DataFrame(prices, columns=['timestamp', 'close'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     df.set_index('timestamp', inplace=True)
+    
+    # Eksik verileri doldurmak için varsayılan değerler
+    df['open'] = df['close']
+    df['high'] = df['close']
+    df['low'] = df['close']
+    df['volume'] = np.nan
     
     return df
 
@@ -130,7 +152,7 @@ def calculate_expected_price(df):
 st.title('Kripto Para Veri Analizi')
 
 selected_pair = st.selectbox('Kripto Para Çifti Seçin', USDT_PAIRS)
-data_interval = st.selectbox('Zaman Aralığı Seçin', ['1d', '1h', '30m', '15m'])
+data_interval = st.selectbox('Zaman Aralığı Seçin', ['daily', 'hourly'])
 lookback_period = st.slider('Veri Gerçekleme Süresi (Gün)', min_value=30, max_value=365, value=90)
 
 if st.button('Verileri Getir ve Analiz Et'):
