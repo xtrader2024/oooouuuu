@@ -8,9 +8,13 @@ from datetime import datetime, timedelta
 import statsmodels.api as sm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
+from decimal import Decimal, getcontext
 
-# Bybit API bağlantısı
-exchange = ccxt.binanceus()
+# Daha yüksek hassasiyet ayarlama
+getcontext().prec = 50
+
+# Binance API bağlantısı
+exchange = ccxt.binance()
 
 # Göstergeler için sabitler
 RSI_TIME_PERIOD = 14
@@ -21,7 +25,7 @@ BOLLINGER_WINDOW = 20
 STOCH_FASTK_PERIOD = 14
 STOCH_SLOWK_PERIOD = 3
 
-def get_bybit_data(symbol, interval, start_str, end_str):
+def get_binance_data(symbol, interval, start_str, end_str):
     try:
         since = exchange.parse8601(start_str)
         klines = exchange.fetch_ohlcv(symbol, interval, since=since, limit=1000)
@@ -90,8 +94,8 @@ def calculate_expected_price(df):
     if df.empty:
         return np.nan, np.nan
     
-    price = df['close'].iloc[-1]
-    sma_50 = df['SMA_50'].iloc[-1]
+    price = Decimal(df['close'].iloc[-1])
+    sma_50 = Decimal(df['SMA_50'].iloc[-1])
     
     if pd.isna(sma_50) or sma_50 == 0:
         return np.nan, np.nan
@@ -99,17 +103,17 @@ def calculate_expected_price(df):
     expected_price = price * (1 + (price - sma_50) / sma_50)
     expected_increase_percentage = ((expected_price - price) / price) * 100 - 1
     
-    return expected_price, expected_increase_percentage
+    return float(expected_price), float(expected_increase_percentage)
 
 def calculate_trade_levels(df, entry_pct=0.02, take_profit_pct=0.05, stop_loss_pct=0.02):
     if df.empty:
         return np.nan, np.nan, np.nan
     
-    entry_price = df['close'].iloc[-1]
-    take_profit_price = entry_price * (1 + take_profit_pct)
-    stop_loss_price = entry_price * (1 - stop_loss_pct)
+    entry_price = Decimal(df['close'].iloc[-1])
+    take_profit_price = entry_price * (1 + Decimal(take_profit_pct))
+    stop_loss_price = entry_price * (1 - Decimal(stop_loss_pct))
     
-    return entry_price, take_profit_price, stop_loss_price
+    return float(entry_price), float(take_profit_price), float(stop_loss_price)
 
 def get_all_usdt_pairs():
     try:
@@ -118,7 +122,7 @@ def get_all_usdt_pairs():
         usdt_pairs = [s for s in symbols if s.endswith('/USDT')]
         return usdt_pairs
     except Exception as e:
-        st.error(f"USDT pariteleri çekme hatası: {e}")
+        st.error(f"USDT paritesi çekme hatası: {e}")
         return []
 
 def plot_to_png(df, symbol):
@@ -134,6 +138,9 @@ def plot_to_png(df, symbol):
     ax.set_ylabel('Fiyat')
     ax.legend()
 
+    # Bilimsel notasyonun uygulanmasını sağla
+    ax.ticklabel_format(axis='y', style='scientific', scilimits=(0,0))
+
     img = io.BytesIO()
     plt.savefig(img, format='png')
     img.seek(0)
@@ -143,7 +150,7 @@ def plot_to_png(df, symbol):
     return img_base64
 
 def process_symbol(symbol, interval, start_str, end_str):
-    df = get_bybit_data(symbol, interval, start_str, end_str)
+    df = get_binance_data(symbol, interval, start_str, end_str)
     if df.empty:
         return None
 
@@ -183,10 +190,10 @@ def process_symbol(symbol, interval, start_str, end_str):
 def main():
     st.title('Kripto Para Analizi')
     
-    interval = st.selectbox('Zaman Aralığı', ['1d', '1h', '30m', '15m', '5m', '1m'], index=0)
+    interval = st.selectbox('Zaman Aralığı', ['4h'], index=0)  # 4 saatlik aralık seçimi
     
     end_date = datetime.now()
-    start_date = end_date - timedelta(days=51)
+    start_date = end_date - timedelta(days=51)  # 51 gün geriye git
     start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S')
     end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S')
     
@@ -211,23 +218,23 @@ def main():
         
         for result in results:
             st.subheader(f"{result['coin_name']} Analizi")
-            st.write(f"Mevcut Fiyat: ${result['price']:.2f}")
-            st.write(f"Beklenen Fiyat: ${result['expected_price']:.2f}")
+            st.write(f"Mevcut Fiyat: ${result['price']:.10f}")
+            st.write(f"Beklenen Fiyat: ${result['expected_price']:.10f}")
             st.write(f"Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
-            st.write(f"SMA 50: ${result['sma_50']:.2f}")
+            st.write(f"SMA 50: ${result['sma_50']:.10f}")
             st.write(f"RSI 14: {result['rsi_14']:.2f}")
-            st.write(f"MACD Line: {result['macd_line']:.2f}")
-            st.write(f"MACD Signal: {result['macd_signal']:.2f}")
-            st.write(f"BB Üst Bandı: ${result['bb_upper']:.2f}")
-            st.write(f"BB Orta Bandı: ${result['bb_middle']:.2f}")
-            st.write(f"BB Alt Bandı: ${result['bb_lower']:.2f}")
-            st.write(f"ATR: {result['atr']:.2f}")
+            st.write(f"MACD Line: {result['macd_line']:.10f}")
+            st.write(f"MACD Signal: {result['macd_signal']:.10f}")
+            st.write(f"BB Üst Bandı: ${result['bb_upper']:.10f}")
+            st.write(f"BB Orta Bandı: ${result['bb_middle']:.10f}")
+            st.write(f"BB Alt Bandı: ${result['bb_lower']:.10f}")
+            st.write(f"ATR: {result['atr']:.10f}")
             st.write(f"Stochastic %K: {result['stoch_k']:.2f}")
             st.write(f"Stochastic %D: {result['stoch_d']:.2f}")
-            st.write(f"Öngörülen Ertesi Gün Fiyatı: ${result['forecast_next_day_price']:.2f}")
-            st.write(f"Giriş Fiyatı: ${result['entry_price']:.2f}")
-            st.write(f"Kar Alma Fiyatı: ${result['take_profit_price']:.2f}")
-            st.write(f"Zarar Durdur Fiyatı: ${result['stop_loss_price']:.2f}")
+            st.write(f"Öngörülen Ertesi Gün Fiyatı: ${result['forecast_next_day_price']:.10f}")
+            st.write(f"Giriş Fiyatı: ${result['entry_price']:.10f}")
+            st.write(f"Kar Alma Fiyatı: ${result['take_profit_price']:.10f}")
+            st.write(f"Zarar Durdur Fiyatı: ${result['stop_loss_price']:.10f}")
             st.image(f"data:image/png;base64,{result['plot']}", use_column_width=True)
 
 if __name__ == '__main__':
