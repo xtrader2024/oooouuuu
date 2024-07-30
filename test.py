@@ -9,13 +9,14 @@ import statsmodels.api as sm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
 from decimal import Decimal, getcontext
+import time
 
 # Daha yüksek hassasiyet ayarlama
 getcontext().prec = 50
 
 # En çok bilinen 5 borsa kodları
 TOP_EXCHANGES = {
-    'Binanceus': 'binanceus',
+    'Binance us': 'binanceus',
     'Kraken': 'kraken',
     'Bitfinex': 'bitfinex',
     'Bitstamp': 'bitstamp'
@@ -41,33 +42,43 @@ def initialize_exchange(exchange_code):
 def get_exchange_data(symbol, interval, start_str, end_str, exchange):
     try:
         since = exchange.parse8601(start_str)
-        klines = exchange.fetch_ohlcv(symbol, interval, since=since, limit=1000)
-        
-        if not klines or len(klines) < 51:
+        df_list = []
+        while since < exchange.parse8601(end_str):
+            klines = exchange.fetch_ohlcv(symbol, interval, since=since, limit=1000)
+            if not klines:
+                break
+            df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
+            df.set_index('timestamp', inplace=True)
+            df = df[['open', 'high', 'low', 'close', 'volume']]
+            df = df.astype(float)
+            df_list.append(df)
+            since = df.index[-1] + pd.Timedelta(seconds=1)  # Bir sonraki veri dilimi
+            time.sleep(1)  # Gecikme ekle
+
+        if not df_list:
             st.warning(f"Yetersiz veri ({symbol})")
             return pd.DataFrame()
+
+        df = pd.concat(df_list)
         
-        df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
-        df.set_index('timestamp', inplace=True)
-        df = df[['open', 'high', 'low', 'close', 'volume']]
-        df = df.astype(float)
-        
+        # Bitiş tarihini veri setinin son tarihi ile güncelle
         if end_str:
             df = df.loc[start_str:end_str]
         
         return df
     except Exception as e:
         st.error(f"Veri çekme hatası ({symbol}): {e}")
+        time.sleep(60)  # 1 dakika bekle
         return pd.DataFrame()
 
 def fetch_current_price(symbol, exchange):
     try:
         ticker = exchange.fetch_ticker(symbol)
-        return ticker['last']  # Anlık fiyatı getirir
+        return ticker['last'], ticker['timestamp']  # Anlık fiyat ve timestamp getirir
     except Exception as e:
         st.error(f"Anlık fiyat çekme hatası ({symbol}): {e}")
-        return None
+        return None, None
 
 def calculate_indicators(df):
     df['SMA_50'] = df['close'].rolling(window=50).mean()
@@ -177,94 +188,44 @@ def plot_to_png(df, symbol):
     img_base64 = base64.b64encode(img.getvalue()).decode('utf-8')
     return img_base64
 
-def process_symbol(symbol, interval, start_str, end_str, exchange):
-    df = get_exchange_data(symbol, interval, start_str, end_str, exchange)
-    if df.empty:
-        return None
-
-    try:
-        df = calculate_indicators(df)
-        df = generate_signals(df)
-        forecast = forecast_next_price(df)
-        expected_price, expected_increase_percentage = calculate_expected_price(df)
-        entry_price, take_profit_price, stop_loss_price = calculate_trade_levels(df)
-        
-        current_price = fetch_current_price(symbol, exchange)
-        if current_price is None:
-            return None
-        
-        if df['Buy_Signal'].iloc[-1] and expected_increase_percentage >= 5:
-            return {
-                'coin_name': symbol,
-                'price': current_price,
-                'expected_price': expected_price,
-                'expected_increase_percentage': expected_increase_percentage,
-                'sma_50': df['SMA_50'].iloc[-1],
-                'rsi_14': df['RSI'].iloc[-1],
-                'macd_line': df['MACD_Line'].iloc[-1],
-                'macd_signal': df['MACD_Signal'].iloc[-1],
-                'bb_upper': df['BB_Upper'].iloc[-1],
-                'bb_middle': df['BB_Middle'].iloc[-1],
-                'bb_lower': df['BB_Lower'].iloc[-1],
-                'atr': df['ATR'].iloc[-1],
-                'stoch_k': df['%K'].iloc[-1],
-                'stoch_d': df['%D'].iloc[-1],
-                'entry_price': entry_price,
-                'take_profit_price': take_profit_price,
-                'stop_loss_price': stop_loss_price,
-                'plot': plot_to_png(df, symbol)
-            }
-    except Exception as e:
-        st.error(f"İşleme hatası ({symbol}): {e}")
-        return None
-
 def main():
     st.title('Kripto Para Analiz Aracı')
 
-    exchange_code = st.selectbox('Borsa Seçin', list(TOP_EXCHANGES.keys()))
-    interval = st.selectbox('Zaman Aralığı', ['1m', '5m', '15m', '1h', '4h', '1d'])
-    start_date = st.date_input('Başlangıç Tarihi', datetime.now() - timedelta(days=365))
-    end_date = st.date_input('Bitiş Tarihi', datetime.now())  # Varsayılan olarak şu anki tarih
-    start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S')
+    exchange_code = st.selectbox("Borsa Seçin", list(TOP_EXCHANGES.keys()))
+    exchange = initialize_exchange(TOP_EXCHANGES[exchange_code])
     
-    # End date'i mevcut zamanı kullanarak güncelle
-    end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S')
-
-    exchange_code = TOP_EXCHANGES[exchange_code]
-    exchange = initialize_exchange(exchange_code)
     if exchange is None:
-        return
+        st.stop()
 
-    usdt_pairs = get_all_usdt_pairs(exchange)
+    symbol = st.text_input("USDT Paritesi (örnek: BTC/USDT)", "BTC/USDT")
+    interval = st.selectbox("Zaman Aralığı", ['1m', '5m', '15m', '30m', '1h', '4h', '1d'])
+    start_date = st.date_input("Başlangıç Tarihi", datetime.today() - timedelta(days=30))
+    end_date = st.date_input("Bitiş Tarihi", datetime.today())
     
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {executor.submit(process_symbol, symbol, interval, start_str, end_str, exchange): symbol for symbol in usdt_pairs}
+    if st.button("Veriyi Çek"):
+        start_str = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        end_str = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
         
-        for future in as_completed(futures):
-            symbol = futures[future]
-            try:
-                result = future.result()
-                if result:
-                    st.write(f"**{result['coin_name']}**")
-                    st.write(f"Anlık Fiyat: {result['price']:.2f} USDT")
-                    st.write(f"Beklenen Fiyat: {result['expected_price']:.2f} USDT")
-                    st.write(f"Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
-                    st.write(f"50 Günlük SMA: {result['sma_50']:.2f}")
-                    st.write(f"RSI (14): {result['rsi_14']:.2f}")
-                    st.write(f"MACD Line: {result['macd_line']:.2f}")
-                    st.write(f"MACD Signal: {result['macd_signal']:.2f}")
-                    st.write(f"BB Üst Bandı: {result['bb_upper']:.2f}")
-                    st.write(f"BB Orta Bandı: {result['bb_middle']:.2f}")
-                    st.write(f"BB Alt Bandı: {result['bb_lower']:.2f}")
-                    st.write(f"ATR: {result['atr']:.2f}")
-                    st.write(f"Stochastic %K: {result['stoch_k']:.2f}")
-                    st.write(f"Stochastic %D: {result['stoch_d']:.2f}")
-                    st.write(f"Giriş Fiyatı: {result['entry_price']:.2f}")
-                    st.write(f"Kar Al Fiyatı: {result['take_profit_price']:.2f}")
-                    st.write(f"Zarar Durdur Fiyatı: {result['stop_loss_price']:.2f}")
-                    st.image(f"data:image/png;base64,{result['plot']}", caption=f"{result['coin_name']} Grafiği")
-            except Exception as e:
-                st.error(f"Sonuç işleme hatası ({symbol}): {e}")
+        df = get_exchange_data(symbol, interval, start_str, end_str, exchange)
+        
+        if not df.empty:
+            df = calculate_indicators(df)
+            df = generate_signals(df)
+            expected_price, expected_increase_pct = calculate_expected_price(df)
+            entry_price, take_profit_price, stop_loss_price = calculate_trade_levels(df)
+            
+            st.write(f"Son Kapanış Fiyatı: {df['close'].iloc[-1]}")
+            st.write(f"Beklenen Fiyat: {expected_price}")
+            st.write(f"Beklenen Artış Yüzdesi: {expected_increase_pct:.2f}%")
+            st.write(f"Alım Fiyatı: {entry_price}")
+            st.write(f"Kar Al Fiyatı: {take_profit_price}")
+            st.write(f"Zarar Durdur Fiyatı: {stop_loss_price}")
+
+            img_base64 = plot_to_png(df, symbol)
+            st.image(f"data:image/png;base64,{img_base64}", use_column_width=True)
+            
+            st.write("Alım Satım Sinyalleri:")
+            st.write(df[['close', 'Buy_Signal', 'Sell_Signal']].tail())
 
 if __name__ == "__main__":
     main()
