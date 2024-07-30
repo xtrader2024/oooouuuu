@@ -8,18 +8,15 @@ from datetime import datetime, timedelta
 import statsmodels.api as sm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
+from tradingview_ta import TA_Handler, Interval, Exchange
 
-# Binance API keys kaldırıldı
-exchange = ccxt.binance()  # API anahtarları olmadan Binance'e bağlanıyoruz
-
-# Göstergeler için sabitler
-RSI_TIME_PERIOD = 14
-MACD_FAST_PERIOD = 12
-MACD_SLOW_PERIOD = 26
-MACD_SIGNAL_PERIOD = 9
-BOLLINGER_WINDOW = 20
-STOCH_FASTK_PERIOD = 14
-STOCH_SLOWK_PERIOD = 3
+# Binance API keys (Güvenliğiniz için lütfen bu anahtarları gizli tutun)
+api_key = 'TAAgJilKcF9LHg977hGa3fVXdd9TUv6EmaZu7YgkCa4f8aAcxT5lvRI1gkh8mvw2'
+api_secret = 'Yw48JHkJu3dz0YpJrPJz9ektNHUvYZtNePTeQLzDAe0CRk33wyKbebyRV0q4xwJk'
+exchange = ccxt.binance({
+    'apiKey': api_key,
+    'secret': api_secret,
+})
 
 def get_binance_data(symbol, interval, start_str, end_str):
     try:
@@ -36,38 +33,24 @@ def get_binance_data(symbol, interval, start_str, end_str):
         st.error(f"Veri çekme hatası ({symbol}): {e}")
         return pd.DataFrame()
 
-def calculate_indicators(df):
-    df['SMA_50'] = df['close'].rolling(window=50).mean()
-    df['EMA_50'] = df['close'].ewm(span=50, adjust=False).mean()
-    
-    df['BB_Middle'] = df['close'].rolling(window=BOLLINGER_WINDOW).mean()
-    df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=BOLLINGER_WINDOW).std()
-    df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=BOLLINGER_WINDOW).std()
-    
-    delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=RSI_TIME_PERIOD).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=RSI_TIME_PERIOD).mean()
-    rs = gain / loss
-    df['RSI'] = 100 - (100 / (1 + rs))
-    
-    df['MACD_Line'] = df['close'].ewm(span=MACD_FAST_PERIOD, adjust=False).mean() - df['close'].ewm(span=MACD_SLOW_PERIOD, adjust=False).mean()
-    df['MACD_Signal'] = df['MACD_Line'].ewm(span=MACD_SIGNAL_PERIOD, adjust=False).mean()
-    
-    df['Prev_Close'] = df['close'].shift(1)
-    df['TR'] = df[['high', 'Prev_Close']].max(axis=1) - df[['low', 'Prev_Close']].min(axis=1)
-    df['ATR'] = df['TR'].rolling(window=14).mean()
+def calculate_tradingview_indicators(symbol, interval):
+    try:
+        handler = TA_Handler(
+            symbol=symbol,
+            exchange="BINANCE",
+            interval=interval
+        )
+        analysis = handler.get_analysis()
+        indicators = analysis.indicators
+        return indicators
+    except Exception as e:
+        st.error(f"TradingView indikatörleri çekme hatası ({symbol}): {e}")
+        return {}
 
-    df['Lowest_Low'] = df['low'].rolling(window=STOCH_FASTK_PERIOD).min()
-    df['Highest_High'] = df['high'].rolling(window=STOCH_FASTK_PERIOD).max()
-    df['%K'] = 100 * (df['close'] - df['Lowest_Low']) / (df['Highest_High'] - df['Lowest_Low'])
-    df['%D'] = df['%K'].rolling(window=STOCH_SLOWK_PERIOD).mean()
-    
-    return df
-
-def generate_signals(df):
-    df['Buy_Signal'] = (df['close'] > df['SMA_50']) & (df['MACD_Line'] > df['MACD_Signal']) & (df['%K'] > df['%D']) & (df['%K'] > 20)
-    df['Sell_Signal'] = (df['close'] < df['SMA_50']) & (df['RSI'] > 70)
-    return df
+def generate_signals(indicators):
+    buy_signal = (indicators.get('SMA50') and indicators.get('MACD.buy_signal')) and indicators.get('StochasticK') > indicators.get('StochasticD')
+    sell_signal = (indicators.get('RSI') and indicators.get('RSI') > 70)
+    return buy_signal, sell_signal
 
 def forecast_next_price(df):
     df = df.copy()
@@ -147,28 +130,29 @@ def process_symbol(symbol, interval, start_str, end_str):
         return None
 
     try:
-        df = calculate_indicators(df)
-        df = generate_signals(df)
+        indicators = calculate_tradingview_indicators(symbol, interval)
+        buy_signal, sell_signal = generate_signals(indicators)
+        
         forecast = forecast_next_price(df)
         expected_price, expected_increase_percentage = calculate_expected_price(df)
         entry_price, take_profit_price, stop_loss_price = calculate_trade_levels(df)
         
-        if df['Buy_Signal'].iloc[-1] and expected_increase_percentage >= 5:
+        if buy_signal and expected_increase_percentage >= 5:
             return {
                 'coin_name': symbol,
                 'price': df['close'].iloc[-1],
                 'expected_price': expected_price,
                 'expected_increase_percentage': expected_increase_percentage,
                 'sma_50': df['SMA_50'].iloc[-1],
-                'rsi_14': df['RSI'].iloc[-1],
-                'macd_line': df['MACD_Line'].iloc[-1],
-                'macd_signal': df['MACD_Signal'].iloc[-1],
-                'bb_upper': df['BB_Upper'].iloc[-1],
-                'bb_middle': df['BB_Middle'].iloc[-1],
-                'bb_lower': df['BB_Lower'].iloc[-1],
-                'atr': df['ATR'].iloc[-1],
-                'stoch_k': df['%K'].iloc[-1],
-                'stoch_d': df['%D'].iloc[-1],
+                'rsi_14': indicators.get('RSI'),
+                'macd_line': indicators.get('MACD'),
+                'macd_signal': indicators.get('MACD.Signal'),
+                'bb_upper': indicators.get('BBUpper'),
+                'bb_middle': indicators.get('BBMiddle'),
+                'bb_lower': indicators.get('BBLower'),
+                'atr': indicators.get('ATR'),
+                'stoch_k': indicators.get('StochasticK'),
+                'stoch_d': indicators.get('StochasticD'),
                 'forecast_next_day_price': forecast,
                 'entry_price': entry_price,
                 'take_profit_price': take_profit_price,
