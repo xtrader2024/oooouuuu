@@ -13,12 +13,13 @@ from decimal import Decimal, getcontext
 # Daha yüksek hassasiyet ayarlama
 getcontext().prec = 50
 
-# En çok bilinen 5 borsa kodları
+# En çok bilinen 4 borsa kodları
 TOP_EXCHANGES = {
     'Binance us': 'binanceus',
     'Kraken': 'kraken',
     'Bitfinex': 'bitfinex',
-    'Bitstamp': 'bitstamp'
+    'Huobi': 'huobi',
+    'Gate.io': 'gateio',
 }
 
 # Göstergeler için sabitler
@@ -223,13 +224,18 @@ def process_symbol(symbol, interval, exchange):
 def main():
     st.title('Kripto Para Analiz Aracı')
 
-    exchange_code = st.selectbox('Borsa Seçin', list(TOP_EXCHANGES.keys()))
-    exchange_code = TOP_EXCHANGES[exchange_code]
+    exchange_name = st.selectbox('Borsa Seçin', list(TOP_EXCHANGES.keys()))
+    exchange_code = TOP_EXCHANGES[exchange_name]
     exchange = initialize_exchange(exchange_code)
     if exchange is None:
         return
 
     usdt_pairs = get_all_usdt_pairs(exchange)
+    total_pairs = len(usdt_pairs)
+    st.write(f"Toplam Çekilen Kripto Para: {total_pairs}")
+
+    # Analiz edilen parite sayısını hesaplamak için bir değişken oluştur
+    analyzed_count = 0
     
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(process_symbol, symbol, '4h', exchange): symbol for symbol in usdt_pairs}
@@ -239,26 +245,29 @@ def main():
             try:
                 result = future.result()
                 if result:
-                    st.write(f"**{result['coin_name']}**")
-                    st.write(f"Anlık Fiyat: {result['price']:.2f} USDT")
-                    st.write(f"Beklenen Fiyat: {result['expected_price']:.2f} USDT")
-                    st.write(f"Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
-                    st.write(f"50 Günlük SMA: {result['sma_50']:.2f}")
-                    st.write(f"RSI (14): {result['rsi_14']:.2f}")
-                    st.write(f"MACD Line: {result['macd_line']:.2f}")
-                    st.write(f"MACD Signal: {result['macd_signal']:.2f}")
-                    st.write(f"BB Üst Bandı: {result['bb_upper']:.2f}")
-                    st.write(f"BB Orta Bandı: {result['bb_middle']:.2f}")
-                    st.write(f"BB Alt Bandı: {result['bb_lower']:.2f}")
-                    st.write(f"ATR: {result['atr']:.2f}")
-                    st.write(f"Stochastic %K: {result['stoch_k']:.2f}")
-                    st.write(f"Stochastic %D: {result['stoch_d']:.2f}")
-                    st.write(f"Giriş Fiyatı: {result['entry_price']:.2f}")
-                    st.write(f"Kar Al Fiyatı: {result['take_profit_price']:.2f}")
-                    st.write(f"Zarar Durdur Fiyatı: {result['stop_loss_price']:.2f}")
-                    st.image(f"data:image/png;base64,{result['plot']}", caption=f"{result['coin_name']} Grafiği")
+                    analyzed_count += 1
+                    with st.expander(f"**{result['coin_name']}**"):
+                        st.write(f"Anlık Fiyat: {result['price']:.2f} USDT")
+                        st.write(f"Beklenen Fiyat: {result['expected_price']:.2f} USDT")
+                        st.write(f"Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
+                        st.write(f"50 Günlük SMA: {result['sma_50']:.2f}")
+                        st.write(f"RSI (14): {result['rsi_14']:.2f}")
+                        st.write(f"MACD Line: {result['macd_line']:.2f}")
+                        st.write(f"MACD Signal: {result['macd_signal']:.2f}")
+                        st.write(f"BB Üst Bandı: {result['bb_upper']:.2f}")
+                        st.write(f"BB Orta Bandı: {result['bb_middle']:.2f}")
+                        st.write(f"BB Alt Bandı: {result['bb_lower']:.2f}")
+                        st.write(f"ATR: {result['atr']:.2f}")
+                        st.write(f"Stochastic %K: {result['stoch_k']:.2f}")
+                        st.write(f"Stochastic %D: {result['stoch_d']:.2f}")
+                        st.write(f"Giriş Fiyatı: {result['entry_price']:.2f}")
+                        st.write(f"Kar Al Fiyatı: {result['take_profit_price']:.2f}")
+                        st.write(f"Zarar Durdur Fiyatı: {result['stop_loss_price']:.2f}")
+                        st.image(f"data:image/png;base64,{result['plot']}", caption=f"{result['coin_name']} Grafiği")
             except Exception as e:
                 st.error(f"Sonuç işleme hatası ({symbol}): {e}")
+    
+    st.write(f"Toplam Analiz Edilen Kripto Para: {analyzed_count}")
 
 if __name__ == "__main__":
     main()
