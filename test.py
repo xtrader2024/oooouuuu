@@ -15,7 +15,7 @@ getcontext().prec = 50
 
 # En çok bilinen 5 borsa kodları
 TOP_EXCHANGES = {
-    'Binance us': 'binanceus',
+    'Binanceus': 'binanceus',
     'Kraken': 'kraken',
     'Bitfinex': 'bitfinex',
     'Bitstamp': 'bitstamp'
