@@ -13,33 +13,61 @@ from decimal import Decimal, getcontext
 # Daha yüksek hassasiyet ayarlama
 getcontext().prec = 50
 
-# Binance API bağlantısı
-exchange = ccxt.binanceus()
+# En çok bilinen 5 borsa kodları
+TOP_EXCHANGES = {
+    'Binance us': 'binanceus',
+    'Kraken': 'kraken',
+    'Bitfinex': 'bitfinex',
+    'Bitstamp': 'bitstamp'
+}
 
 # Göstergeler için sabitler
+BOLLINGER_WINDOW = 20
 RSI_TIME_PERIOD = 14
 MACD_FAST_PERIOD = 12
 MACD_SLOW_PERIOD = 26
 MACD_SIGNAL_PERIOD = 9
-BOLLINGER_WINDOW = 20
 STOCH_FASTK_PERIOD = 14
 STOCH_SLOWK_PERIOD = 3
 
-def get_binance_data(symbol, interval, start_str, end_str):
+def initialize_exchange(exchange_code):
+    try:
+        exchange = getattr(ccxt, exchange_code)()
+        return exchange
+    except Exception as e:
+        st.error(f"Borsa başlatma hatası ({exchange_code}): {e}")
+        return None
+
+def get_exchange_data(symbol, interval, start_str, end_str, exchange):
     try:
         since = exchange.parse8601(start_str)
         klines = exchange.fetch_ohlcv(symbol, interval, since=since, limit=1000)
+        
         if not klines or len(klines) < 51:
+            st.warning(f"Yetersiz veri ({symbol})")
             return pd.DataFrame()
+        
         df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
         df.set_index('timestamp', inplace=True)
         df = df[['open', 'high', 'low', 'close', 'volume']]
         df = df.astype(float)
+        
+        if end_str:
+            df = df.loc[start_str:end_str]
+        
         return df
     except Exception as e:
         st.error(f"Veri çekme hatası ({symbol}): {e}")
         return pd.DataFrame()
+
+def fetch_current_price(symbol, exchange):
+    try:
+        ticker = exchange.fetch_ticker(symbol)
+        return ticker['last']  # Anlık fiyatı getirir
+    except Exception as e:
+        st.error(f"Anlık fiyat çekme hatası ({symbol}): {e}")
+        return None
 
 def calculate_indicators(df):
     df['SMA_50'] = df['close'].rolling(window=50).mean()
@@ -115,7 +143,7 @@ def calculate_trade_levels(df, entry_pct=0.02, take_profit_pct=0.05, stop_loss_p
     
     return float(entry_price), float(take_profit_price), float(stop_loss_price)
 
-def get_all_usdt_pairs():
+def get_all_usdt_pairs(exchange):
     try:
         exchange_info = exchange.load_markets()
         symbols = exchange_info.keys()
@@ -149,8 +177,8 @@ def plot_to_png(df, symbol):
     img_base64 = base64.b64encode(img.getvalue()).decode('utf-8')
     return img_base64
 
-def process_symbol(symbol, interval, start_str, end_str):
-    df = get_binance_data(symbol, interval, start_str, end_str)
+def process_symbol(symbol, interval, start_str, end_str, exchange):
+    df = get_exchange_data(symbol, interval, start_str, end_str, exchange)
     if df.empty:
         return None
 
@@ -161,10 +189,14 @@ def process_symbol(symbol, interval, start_str, end_str):
         expected_price, expected_increase_percentage = calculate_expected_price(df)
         entry_price, take_profit_price, stop_loss_price = calculate_trade_levels(df)
         
+        current_price = fetch_current_price(symbol, exchange)
+        if current_price is None:
+            return None
+        
         if df['Buy_Signal'].iloc[-1] and expected_increase_percentage >= 5:
             return {
                 'coin_name': symbol,
-                'price': df['close'].iloc[-1],
+                'price': current_price,
                 'expected_price': expected_price,
                 'expected_increase_percentage': expected_increase_percentage,
                 'sma_50': df['SMA_50'].iloc[-1],
@@ -177,7 +209,6 @@ def process_symbol(symbol, interval, start_str, end_str):
                 'atr': df['ATR'].iloc[-1],
                 'stoch_k': df['%K'].iloc[-1],
                 'stoch_d': df['%D'].iloc[-1],
-                'forecast_next_day_price': forecast,
                 'entry_price': entry_price,
                 'take_profit_price': take_profit_price,
                 'stop_loss_price': stop_loss_price,
@@ -188,54 +219,52 @@ def process_symbol(symbol, interval, start_str, end_str):
         return None
 
 def main():
-    st.title('Kripto Para Analizi')
-    
-    interval = st.selectbox('Zaman Aralığı', ['4h'], index=0)  # 4 saatlik aralık seçimi
-    
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=51)  # 51 gün geriye git
-    start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S')
-    end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S')
-    
-    if st.button('Analiz Başlat'):
-        usdt_pairs = get_all_usdt_pairs()
-        if not usdt_pairs:
-            st.error("USDT paritesi bulunamadı.")
-            return
-        
-        total_pairs = len(usdt_pairs)
-        st.write(f"Toplam çekilen parite sayısı: {total_pairs}")
+    st.title('Kripto Para Analiz Aracı')
 
-        with ThreadPoolExecutor() as executor:
-            future_to_symbol = {executor.submit(process_symbol, symbol, interval, start_str, end_str): symbol for symbol in usdt_pairs}
-            results = []
-            for future in as_completed(future_to_symbol):
+    exchange_code = st.selectbox('Borsa Seçin', list(TOP_EXCHANGES.keys()))
+    interval = st.selectbox('Zaman Aralığı', ['1m', '5m', '15m', '1h', '4h', '1d'])
+    start_date = st.date_input('Başlangıç Tarihi', datetime.now() - timedelta(days=365))
+    end_date = st.date_input('Bitiş Tarihi', datetime.now())  # Varsayılan olarak şu anki tarih
+    start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S')
+    
+    # End date'i mevcut zamanı kullanarak güncelle
+    end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S')
+
+    exchange_code = TOP_EXCHANGES[exchange_code]
+    exchange = initialize_exchange(exchange_code)
+    if exchange is None:
+        return
+
+    usdt_pairs = get_all_usdt_pairs(exchange)
+    
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(process_symbol, symbol, interval, start_str, end_str, exchange): symbol for symbol in usdt_pairs}
+        
+        for future in as_completed(futures):
+            symbol = futures[future]
+            try:
                 result = future.result()
                 if result:
-                    results.append(result)
-        
-        st.write(f"Analiz edilen toplam coin sayısı: {len(results)}")
-        
-        for result in results:
-            st.subheader(f"{result['coin_name']} Analizi")
-            st.write(f"Mevcut Fiyat: ${result['price']:.10f}")
-            st.write(f"Beklenen Fiyat: ${result['expected_price']:.10f}")
-            st.write(f"Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
-            st.write(f"SMA 50: ${result['sma_50']:.10f}")
-            st.write(f"RSI 14: {result['rsi_14']:.2f}")
-            st.write(f"MACD Line: {result['macd_line']:.10f}")
-            st.write(f"MACD Signal: {result['macd_signal']:.10f}")
-            st.write(f"BB Üst Bandı: ${result['bb_upper']:.10f}")
-            st.write(f"BB Orta Bandı: ${result['bb_middle']:.10f}")
-            st.write(f"BB Alt Bandı: ${result['bb_lower']:.10f}")
-            st.write(f"ATR: {result['atr']:.10f}")
-            st.write(f"Stochastic %K: {result['stoch_k']:.2f}")
-            st.write(f"Stochastic %D: {result['stoch_d']:.2f}")
-            st.write(f"Öngörülen Ertesi Gün Fiyatı: ${result['forecast_next_day_price']:.10f}")
-            st.write(f"Giriş Fiyatı: ${result['entry_price']:.10f}")
-            st.write(f"Kar Alma Fiyatı: ${result['take_profit_price']:.10f}")
-            st.write(f"Zarar Durdur Fiyatı: ${result['stop_loss_price']:.10f}")
-            st.image(f"data:image/png;base64,{result['plot']}", use_column_width=True)
+                    st.write(f"**{result['coin_name']}**")
+                    st.write(f"Anlık Fiyat: {result['price']:.2f} USDT")
+                    st.write(f"Beklenen Fiyat: {result['expected_price']:.2f} USDT")
+                    st.write(f"Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
+                    st.write(f"50 Günlük SMA: {result['sma_50']:.2f}")
+                    st.write(f"RSI (14): {result['rsi_14']:.2f}")
+                    st.write(f"MACD Line: {result['macd_line']:.2f}")
+                    st.write(f"MACD Signal: {result['macd_signal']:.2f}")
+                    st.write(f"BB Üst Bandı: {result['bb_upper']:.2f}")
+                    st.write(f"BB Orta Bandı: {result['bb_middle']:.2f}")
+                    st.write(f"BB Alt Bandı: {result['bb_lower']:.2f}")
+                    st.write(f"ATR: {result['atr']:.2f}")
+                    st.write(f"Stochastic %K: {result['stoch_k']:.2f}")
+                    st.write(f"Stochastic %D: {result['stoch_d']:.2f}")
+                    st.write(f"Giriş Fiyatı: {result['entry_price']:.2f}")
+                    st.write(f"Kar Al Fiyatı: {result['take_profit_price']:.2f}")
+                    st.write(f"Zarar Durdur Fiyatı: {result['stop_loss_price']:.2f}")
+                    st.image(f"data:image/png;base64,{result['plot']}", caption=f"{result['coin_name']} Grafiği")
+            except Exception as e:
+                st.error(f"Sonuç işleme hatası ({symbol}): {e}")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
