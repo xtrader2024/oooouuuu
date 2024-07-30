@@ -9,65 +9,32 @@ import statsmodels.api as sm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
 
-# Binance API keys
-api_key = 'TAAgJilKcF9LHg977hGa3fVXdd9TUv6EmaZu7YgkCa4f8aAcxT5lvRI1gkh8mvw2'
-api_secret = 'Yw48JHkJu3dz0YpJrPJz9ektNHUvYZtNePTeQLzDAe0CRk33wyKbebyRV0q4xwJk'
+# Binance API keys kaldırıldı
+exchange = ccxt.binance()  # API anahtarları olmadan Binance'e bağlanıyoruz
 
-# Binance API alternatif URL'leri
-ALTERNATIVE_URLS = [
-    'https://api.binance.com',
-    'https://api2.binance.com',
-    'https://api3.binance.com'
-]
+# Göstergeler için sabitler
+RSI_TIME_PERIOD = 14
+MACD_FAST_PERIOD = 12
+MACD_SLOW_PERIOD = 26
+MACD_SIGNAL_PERIOD = 9
+BOLLINGER_WINDOW = 20
+STOCH_FASTK_PERIOD = 14
+STOCH_SLOWK_PERIOD = 3
 
 def get_binance_data(symbol, interval, start_str, end_str):
-    for url in ALTERNATIVE_URLS:
-        try:
-            exchange = ccxt.binance({
-                'apiKey': api_key,
-                'secret': api_secret,
-                'enableRateLimit': True,
-                'urls': {
-                    'api': url
-                }
-            })
-            klines = exchange.fetch_ohlcv(symbol, interval, since=exchange.parse8601(start_str), limit=1000)
-            if not klines or len(klines) < 51:
-                continue
-            
-            df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-            df.set_index('timestamp', inplace=True)
-            df = df[['open', 'high', 'low', 'close', 'volume']]
-            df = df.astype(float)
-            return df
-        except ccxt.NetworkError as e:
-            st.warning(f"Network hatası ({url}): {e}")
-        except ccxt.ExchangeError as e:
-            st.warning(f"Exchange hatası ({url}): {e}")
-        except Exception as e:
-            st.error(f"Genel hata ({url}): {e}")
-
-    st.error("Tüm alternatif API uç noktaları başarısız oldu.")
-    return pd.DataFrame()
-
-def get_all_usdt_pairs():
     try:
-        exchange = ccxt.binance({
-            'apiKey': api_key,
-            'secret': api_secret,
-        })
-        exchange.load_markets()
-        symbols = exchange.markets.keys()
-        usdt_pairs = [s for s in symbols if s.endswith('/USDT')]
-        return usdt_pairs
-    except ccxt.NetworkError as e:
-        st.warning(f"Network hatası: {e}")
-    except ccxt.ExchangeError as e:
-        st.warning(f"Exchange hatası: {e}")
+        klines = exchange.fetch_ohlcv(symbol, interval, since=exchange.parse8601(start_str), limit=1000)
+        if not klines or len(klines) < 51:
+            return pd.DataFrame()
+        df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df.set_index('timestamp', inplace=True)
+        df = df[['open', 'high', 'low', 'close', 'volume']]
+        df = df.astype(float)
+        return df
     except Exception as e:
-        st.error(f"Genel hata: {e}")
-    return []
+        st.error(f"Veri çekme hatası ({symbol}): {e}")
+        return pd.DataFrame()
 
 def calculate_indicators(df):
     df['SMA_50'] = df['close'].rolling(window=50).mean()
@@ -142,6 +109,16 @@ def calculate_trade_levels(df, entry_pct=0.02, take_profit_pct=0.05, stop_loss_p
     stop_loss_price = entry_price * (1 - stop_loss_pct)
     
     return entry_price, take_profit_price, stop_loss_price
+
+def get_all_usdt_pairs():
+    try:
+        exchange_info = exchange.load_markets()
+        symbols = exchange_info.keys()
+        usdt_pairs = [s for s in symbols if s.endswith('/USDT')]
+        return usdt_pairs
+    except Exception as e:
+        st.error(f"USDT pariteleri çekme hatası: {e}")
+        return []
 
 def plot_to_png(df, symbol):
     fig, ax = plt.subplots(figsize=(14, 7))
