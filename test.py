@@ -9,7 +9,7 @@ import statsmodels.api as sm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
 
-# Kraken API bağlantısı
+# Bybit API bağlantısı
 exchange = ccxt.bybit()
 
 # Göstergeler için sabitler
@@ -21,7 +21,7 @@ BOLLINGER_WINDOW = 20
 STOCH_FASTK_PERIOD = 14
 STOCH_SLOWK_PERIOD = 3
 
-def get_kraken_data(symbol, interval, start_str, end_str):
+def get_bybit_data(symbol, interval, start_str, end_str):
     try:
         since = exchange.parse8601(start_str)
         klines = exchange.fetch_ohlcv(symbol, interval, since=since, limit=1000)
@@ -143,7 +143,7 @@ def plot_to_png(df, symbol):
     return img_base64
 
 def process_symbol(symbol, interval, start_str, end_str):
-    df = get_kraken_data(symbol, interval, start_str, end_str)
+    df = get_bybit_data(symbol, interval, start_str, end_str)
     if df.empty:
         return None
 
