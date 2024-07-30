@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
 
 # Kraken API bağlantısı
-exchange = ccxt.binance()
+exchange = ccxt.bybit()
 
 # Göstergeler için sabitler
 RSI_TIME_PERIOD = 14
