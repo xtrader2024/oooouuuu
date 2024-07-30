@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
 
 # Bybit API bağlantısı
-exchange = ccxt.bybit()
+exchange = ccxt.binanceus()
 
 # Göstergeler için sabitler
 RSI_TIME_PERIOD = 14
