@@ -51,7 +51,85 @@ def get_binance_data(symbol, interval, start_str, end_str):
     st.error("Tüm alternatif API uç noktaları başarısız oldu.")
     return pd.DataFrame()
 
-# Göstergeler, sinyaller ve diğer fonksiyonlar burada aynı kalabilir...
+def get_all_usdt_pairs():
+    try:
+        exchange = ccxt.binance({
+            'apiKey': api_key,
+            'secret': api_secret,
+        })
+        exchange.load_markets()
+        symbols = exchange.markets.keys()
+        usdt_pairs = [s for s in symbols if s.endswith('/USDT')]
+        return usdt_pairs
+    except ccxt.NetworkError as e:
+        st.warning(f"Network hatası: {e}")
+    except ccxt.ExchangeError as e:
+        st.warning(f"Exchange hatası: {e}")
+    except Exception as e:
+        st.error(f"Genel hata: {e}")
+    return []
+
+def calculate_indicators(df):
+    # Göstergeler hesaplama kodu burada...
+    return df
+
+def generate_signals(df):
+    # Sinyaller oluşturma kodu burada...
+    return df
+
+def forecast_next_price(df):
+    # Gelecek fiyat tahmini kodu burada...
+    return np.nan
+
+def calculate_expected_price(df):
+    # Beklenen fiyat hesaplama kodu burada...
+    return np.nan, np.nan
+
+def calculate_trade_levels(df, entry_pct=0.02, take_profit_pct=0.05, stop_loss_pct=0.02):
+    # Ticaret seviyelerini hesaplama kodu burada...
+    return np.nan, np.nan, np.nan
+
+def plot_to_png(df, symbol):
+    # Grafik çizim kodu burada...
+    return ""
+
+def process_symbol(symbol, interval, start_str, end_str):
+    df = get_binance_data(symbol, interval, start_str, end_str)
+    if df.empty:
+        return None
+
+    try:
+        df = calculate_indicators(df)
+        df = generate_signals(df)
+        forecast = forecast_next_price(df)
+        expected_price, expected_increase_percentage = calculate_expected_price(df)
+        entry_price, take_profit_price, stop_loss_price = calculate_trade_levels(df)
+        
+        if df['Buy_Signal'].iloc[-1] and expected_increase_percentage >= 5:
+            return {
+                'coin_name': symbol,
+                'price': df['close'].iloc[-1],
+                'expected_price': expected_price,
+                'expected_increase_percentage': expected_increase_percentage,
+                'sma_50': df['SMA_50'].iloc[-1],
+                'rsi_14': df['RSI'].iloc[-1],
+                'macd_line': df['MACD_Line'].iloc[-1],
+                'macd_signal': df['MACD_Signal'].iloc[-1],
+                'bb_upper': df['BB_Upper'].iloc[-1],
+                'bb_middle': df['BB_Middle'].iloc[-1],
+                'bb_lower': df['BB_Lower'].iloc[-1],
+                'atr': df['ATR'].iloc[-1],
+                'stoch_k': df['%K'].iloc[-1],
+                'stoch_d': df['%D'].iloc[-1],
+                'forecast_next_day_price': forecast,
+                'entry_price': entry_price,
+                'take_profit_price': take_profit_price,
+                'stop_loss_price': stop_loss_price,
+                'plot': plot_to_png(df, symbol)
+            }
+    except Exception as e:
+        st.error(f"İşleme hatası ({symbol}): {e}")
+        return None
 
 def main():
     st.title('Kripto Para Analizi')
