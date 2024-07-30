@@ -20,6 +20,10 @@ TOP_EXCHANGES = {
     'Bitfinex': 'bitfinex',
     'Huobi': 'huobi',
     'Gate.io': 'gateio',
+    'Bybit': 'bybit',
+    'KuCoin': 'kucoin',
+    'Gate': 'gate',
+    'MEXC': 'mexc',
 }
 
 # Göstergeler için sabitler
@@ -132,17 +136,20 @@ def calculate_expected_price(df):
     expected_price = price * (1 + (price - sma_50) / sma_50)
     expected_increase_percentage = ((expected_price - price) / price) * 100 - 1
     
-    return float(expected_price), float(expected_increase_percentage)
+    # Yalnızca bu kısımlarda hassasiyeti 20 basamağa ayarlıyoruz
+    return f"{expected_price:.20f}", f"{expected_increase_percentage:.20f}"
 
 def calculate_trade_levels(df, entry_pct=0.02, take_profit_pct=0.05, stop_loss_pct=0.02):
     if df.empty:
         return np.nan, np.nan, np.nan
     
     entry_price = Decimal(df['close'].iloc[-1])
-    take_profit_price = entry_price * (1 + Decimal(take_profit_pct))
+    take_profit_price = entry_price * (1 + Decimal(entry_pct))
     stop_loss_price = entry_price * (1 - Decimal(stop_loss_pct))
     
-    return float(entry_price), float(take_profit_price), float(stop_loss_price)
+    # Yalnızca bu kısımlarda hassasiyeti 20 basamağa ayarlıyoruz
+    return f"{entry_price:.20f}", f"{take_profit_price:.20f}", f"{stop_loss_price:.20f}"
+
 
 def get_all_usdt_pairs(exchange):
     try:
@@ -196,7 +203,8 @@ def process_symbol(symbol, interval, exchange):
         
         end_str = pd.to_datetime(current_timestamp, unit='ms').strftime('%Y-%m-%dT%H:%M:%S')
         
-        if df['Buy_Signal'].iloc[-1] and expected_increase_percentage >= 5:
+        buy_signal = df['Buy_Signal'].iloc[-1]
+        if buy_signal and expected_increase_percentage >= 5:
             return {
                 'coin_name': symbol,
                 'price': current_price,
@@ -215,7 +223,8 @@ def process_symbol(symbol, interval, exchange):
                 'entry_price': entry_price,
                 'take_profit_price': take_profit_price,
                 'stop_loss_price': stop_loss_price,
-                'plot': plot_to_png(df, symbol)
+                'plot': plot_to_png(df, symbol),
+                'buy_signal': buy_signal  # Ek bilgi
             }
     except Exception as e:
         st.error(f"İşleme hatası ({symbol}): {e}")
@@ -234,8 +243,8 @@ def main():
     total_pairs = len(usdt_pairs)
     st.write(f"Toplam Çekilen Kripto Para: {total_pairs}")
 
-    # Analiz edilen parite sayısını hesaplamak için bir değişken oluştur
     analyzed_count = 0
+    buy_signal_count = 0
     
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(process_symbol, symbol, '4h', exchange): symbol for symbol in usdt_pairs}
@@ -246,10 +255,14 @@ def main():
                 result = future.result()
                 if result:
                     analyzed_count += 1
+                    if result.get('buy_signal'):
+                        buy_signal_count += 1
+                    
                     with st.expander(f"**{result['coin_name']}**"):
-                        st.write(f"Anlık Fiyat: {result['price']:.2f} USDT")
-                        st.write(f"Beklenen Fiyat: {result['expected_price']:.2f} USDT")
-                        st.write(f"Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
+                        st.write(f"**Anlık Fiyat:** {result['price']:.2f} USDT")
+                        st.write(f"**Beklenen Fiyat:** {result['expected_price']:.2f} USDT")
+                        st.write(f"**Beklenen Artış Yüzdesi:** {result['expected_increase_percentage']:.2f}%")
+                        
                         st.write(f"50 Günlük SMA: {result['sma_50']:.2f}")
                         st.write(f"RSI (14): {result['rsi_14']:.2f}")
                         st.write(f"MACD Line: {result['macd_line']:.2f}")
@@ -267,7 +280,7 @@ def main():
             except Exception as e:
                 st.error(f"Sonuç işleme hatası ({symbol}): {e}")
     
-    st.write(f"Toplam Analiz Edilen Kripto Para: {analyzed_count}")
+    st.write(f"Al Sinyali Veren Kripto Para Sayısı: {buy_signal_count}")
 
 if __name__ == "__main__":
     main()
