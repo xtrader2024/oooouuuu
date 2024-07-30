@@ -1,3 +1,4 @@
+decimal
 ccxt
 pandas
 numpy
