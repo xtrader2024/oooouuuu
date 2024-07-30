@@ -14,7 +14,7 @@ from decimal import Decimal, getcontext
 getcontext().prec = 50
 
 # Binance API bağlantısı
-exchange = ccxt.binance()
+exchange = ccxt.binanceus()
 
 # Göstergeler için sabitler
 RSI_TIME_PERIOD = 14
