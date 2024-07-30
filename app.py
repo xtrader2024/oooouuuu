@@ -8,49 +8,92 @@ from datetime import datetime, timedelta
 import statsmodels.api as sm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import streamlit as st
-from tradingview_ta import TA_Handler, Interval, Exchange
 
-# Binance API keys (Güvenliğiniz için lütfen bu anahtarları gizli tutun)
-api_key = 'TAAgJilKcF9LHg977hGa3fVXdd9TUv6EmaZu7YgkCa4f8aAcxT5lvRI1gkh8mvw2'
-api_secret = 'Yw48JHkJu3dz0YpJrPJz9ektNHUvYZtNePTeQLzDAe0CRk33wyKbebyRV0q4xwJk'
-exchange = ccxt.binance({
-    'apiKey': api_key,
-    'secret': api_secret,
-})
+# USDT pariteleri
+USDT_PAIRS = [
+    "BTC/USDT", "ETH/USDT", "BNB/USDT", "NEO/USDT", "LTC/USDT",
+    "QTUM/USDT", "ADA/USDT", "XRP/USDT", "EOS/USDT", "TUSD/USDT",
+    "IOTA/USDT", "XLM/USDT", "ONT/USDT", "TRX/USDT", "ETC/USDT",
+    "ICX/USDT", "NULS/USDT", "VET/USDT", "USDC/USDT", "LINK/USDT",
+    "ONG/USDT", "HOT/USDT", "ZIL/USDT", "ZRX/USDT", "FET/USDT",
+    "BAT/USDT", "ZEC/USDT", "IOST/USDT", "CELR/USDT", "DASH/USDT",
+    "MATIC/USDT", "ATOM/USDT", "TFUEL/USDT", "ONE/USDT", "FTM/USDT",
+    "ALGO/USDT", "DOGE/USDT", "DUSK/USDT", "ANKR/USDT", "WIN/USDT",
+    "COS/USDT", "MTL/USDT", "DENT/USDT", "KEY/USDT", "WAN/USDT",
+    "FUN/USDT", "CVC/USDT", "CHZ/USDT", "BAND/USDT", "XTZ/USDT",
+    "REN/USDT", "RVN/USDT", "HBAR/USDT", "NKN/USDT", "STX/USDT",
+    "KAVA/USDT", "ARPA/USDT", "IOTX/USDT", "RLC/USDT", "CTXC/USDT",
+    "BCH/USDT", "TROY/USDT", "VITE/USDT", "FTT/USDT", "EUR/USDT",
+    "OGN/USDT", "WRX/USDT", "LSK/USDT", "BNT/USDT", "LTO/USDT",
+    "MBL/USDT", "COTI/USDT", "STPT/USDT", "DATA/USDT", "SOL/USDT",
+    "CTSI/USDT", "HIVE/USDT", "CHR/USDT", "ARDR/USDT", "MDT/USDT",
+    "STMX/USDT", "KNC/USDT", "LRC/USDT", "COMP/USDT", "SC/USDT",
+    "ZEN/USDT", "SNX/USDT", "VTHO/USDT", "DGB/USDT", "SXP/USDT",
+    "MKR/USDT", "DCR/USDT", "STORJ/USDT", "MANA/USDT", "YFI/USDT",
+    "BAL/USDT", "BLZ/USDT", "IRIS/USDT", "KMD/USDT", "JST/USDT",
+    "SAND/USDT", "NMR/USDT", "DOT/USDT", "LUNA/USDT", "RSR/USDT",
+    "PAXG/USDT", "TRB/USDT", "SUSHI/USDT", "KSM/USDT", "EGLD/USDT",
+    "DIA/USDT", "RUNE/USDT", "FIO/USDT", "UMA/USDT", "BEL/USDT",
+    "WING/USDT", "UNI/USDT", "OXT/USDT", "SUN/USDT", "AVAX/USDT",
+    "FLM/USDT", "ORN/USDT", "UTK/USDT", "XVS/USDT", "ALPHA/USDT",
+    "AAVE/USDT", "NEAR/USDT", "INJ/USDT", "AUDIO/USDT", "CTK/USDT",
+    "AKRO/USDT", "AXS/USDT", "HARD/USDT", "STRAX/USDT", "UNFI/USDT",
+    "ROSE/USDT", "AVA/USDT", "SKL/USDT", "SUSD/USDT", "XLMUP/USDT",
+    "XLMDOWN/USDT"
+]
 
-def get_binance_data(symbol, interval, start_str, end_str):
-    try:
-        klines = exchange.fetch_ohlcv(symbol, interval, since=exchange.parse8601(start_str), limit=1000)
-        if not klines or len(klines) < 51:
-            return pd.DataFrame()
-        df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        df.set_index('timestamp', inplace=True)
-        df = df[['open', 'high', 'low', 'close', 'volume']]
-        df = df.astype(float)
-        return df
-    except Exception as e:
-        st.error(f"Veri çekme hatası ({symbol}): {e}")
-        return pd.DataFrame()
+# Göstergeler için sabitler
+RSI_TIME_PERIOD = 14
+MACD_FAST_PERIOD = 12
+MACD_SLOW_PERIOD = 26
+MACD_SIGNAL_PERIOD = 9
+BOLLINGER_WINDOW = 20
+STOCH_FASTK_PERIOD = 14
+STOCH_SLOWK_PERIOD = 3
 
-def calculate_tradingview_indicators(symbol, interval):
-    try:
-        handler = TA_Handler(
-            symbol=symbol,
-            exchange="BINANCE",
-            interval=interval
-        )
-        analysis = handler.get_analysis()
-        indicators = analysis.indicators
-        return indicators
-    except Exception as e:
-        st.error(f"TradingView indikatörleri çekme hatası ({symbol}): {e}")
-        return {}
+def fetch_data(symbol, interval='1d', lookback=365):
+    exchange = ccxt.binance()
+    since = exchange.parse8601((datetime.utcnow() - timedelta(days=lookback)).isoformat())
+    ohlcv = exchange.fetch_ohlcv(symbol, timeframe=interval, since=since)
+    
+    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df.set_index('timestamp', inplace=True)
+    
+    return df
 
-def generate_signals(indicators):
-    buy_signal = (indicators.get('SMA50') and indicators.get('MACD.buy_signal')) and indicators.get('StochasticK') > indicators.get('StochasticD')
-    sell_signal = (indicators.get('RSI') and indicators.get('RSI') > 70)
-    return buy_signal, sell_signal
+def calculate_indicators(df):
+    df['SMA_50'] = df['close'].rolling(window=50).mean()
+    df['EMA_50'] = df['close'].ewm(span=50, adjust=False).mean()
+    
+    df['BB_Middle'] = df['close'].rolling(window=BOLLINGER_WINDOW).mean()
+    df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=BOLLINGER_WINDOW).std()
+    df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=BOLLINGER_WINDOW).std()
+    
+    delta = df['close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=RSI_TIME_PERIOD).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=RSI_TIME_PERIOD).mean()
+    rs = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
+    
+    df['MACD_Line'] = df['close'].ewm(span=MACD_FAST_PERIOD, adjust=False).mean() - df['close'].ewm(span=MACD_SLOW_PERIOD, adjust=False).mean()
+    df['MACD_Signal'] = df['MACD_Line'].ewm(span=MACD_SIGNAL_PERIOD, adjust=False).mean()
+    
+    df['Prev_Close'] = df['close'].shift(1)
+    df['TR'] = df[['high', 'Prev_Close']].max(axis=1) - df[['low', 'Prev_Close']].min(axis=1)
+    df['ATR'] = df['TR'].rolling(window=14).mean()
+
+    df['Lowest_Low'] = df['low'].rolling(window=STOCH_FASTK_PERIOD).min()
+    df['Highest_High'] = df['high'].rolling(window=STOCH_FASTK_PERIOD).max()
+    df['%K'] = 100 * (df['close'] - df['Lowest_Low']) / (df['Highest_High'] - df['Lowest_Low'])
+    df['%D'] = df['%K'].rolling(window=STOCH_SLOWK_PERIOD).mean()
+    
+    return df
+
+def generate_signals(df):
+    df['Buy_Signal'] = (df['close'] > df['SMA_50']) & (df['MACD_Line'] > df['MACD_Signal']) & (df['%K'] > df['%D']) & (df['%K'] > 20)
+    df['Sell_Signal'] = (df['close'] < df['SMA_50']) & (df['RSI'] > 70)
+    return df
 
 def forecast_next_price(df):
     df = df.copy()
@@ -79,134 +122,50 @@ def calculate_expected_price(df):
         return np.nan, np.nan
     
     expected_price = price * (1 + (price - sma_50) / sma_50)
-    expected_increase_percentage = ((expected_price - price) / price) * 100 - 1
+    expected_increase_percentage = ((expected_price - price) / price)
     
     return expected_price, expected_increase_percentage
 
-def calculate_trade_levels(df, entry_pct=0.02, take_profit_pct=0.05, stop_loss_pct=0.02):
+# Streamlit arayüzü
+st.title('Kripto Para Veri Analizi')
+
+selected_pair = st.selectbox('Kripto Para Çifti Seçin', USDT_PAIRS)
+data_interval = st.selectbox('Zaman Aralığı Seçin', ['1d', '1h', '30m', '15m'])
+lookback_period = st.slider('Veri Gerçekleme Süresi (Gün)', min_value=30, max_value=365, value=90)
+
+if st.button('Verileri Getir ve Analiz Et'):
+    df = fetch_data(selected_pair, interval=data_interval, lookback=lookback_period)
     if df.empty:
-        return np.nan, np.nan, np.nan
-    
-    entry_price = df['close'].iloc[-1]
-    take_profit_price = entry_price * (1 + take_profit_pct)
-    stop_loss_price = entry_price * (1 - stop_loss_pct)
-    
-    return entry_price, take_profit_price, stop_loss_price
-
-def get_all_usdt_pairs():
-    try:
-        exchange_info = exchange.load_markets()
-        symbols = exchange_info.keys()
-        usdt_pairs = [s for s in symbols if s.endswith('/USDT')]
-        return usdt_pairs
-    except Exception as e:
-        st.error(f"USDT pariteleri çekme hatası: {e}")
-        return []
-
-def plot_to_png(df, symbol):
-    fig, ax = plt.subplots(figsize=(14, 7))
-    ax.plot(df.index, df['close'], label='Kapanış Fiyatı', color='blue')
-    ax.plot(df.index, df['SMA_50'], label='50 Günlük SMA', color='green')
-    ax.plot(df.index, df['EMA_50'], label='50 Günlük EMA', color='red')
-    ax.plot(df.index, df['BB_Upper'], label='BB Üst Bandı', color='purple', linestyle='--')
-    ax.plot(df.index, df['BB_Lower'], label='BB Alt Bandı', color='purple', linestyle='--')
-    ax.plot(df.index, df['ATR'], label='ATR', color='orange')
-    ax.set_title(f'{symbol} Analizi')
-    ax.set_xlabel('Tarih')
-    ax.set_ylabel('Fiyat')
-    ax.legend()
-
-    img = io.BytesIO()
-    plt.savefig(img, format='png')
-    img.seek(0)
-    plt.close(fig)
-    
-    img_base64 = base64.b64encode(img.getvalue()).decode('utf-8')
-    return img_base64
-
-def process_symbol(symbol, interval, start_str, end_str):
-    df = get_binance_data(symbol, interval, start_str, end_str)
-    if df.empty:
-        return None
-
-    try:
-        indicators = calculate_tradingview_indicators(symbol, interval)
-        buy_signal, sell_signal = generate_signals(indicators)
-        
+        st.error('Veri alınamadı. Lütfen daha sonra tekrar deneyin.')
+    else:
+        df = calculate_indicators(df)
+        df = generate_signals(df)
         forecast = forecast_next_price(df)
         expected_price, expected_increase_percentage = calculate_expected_price(df)
-        entry_price, take_profit_price, stop_loss_price = calculate_trade_levels(df)
         
-        if buy_signal and expected_increase_percentage >= 5:
-            return {
-                'coin_name': symbol,
-                'price': df['close'].iloc[-1],
-                'expected_price': expected_price,
-                'expected_increase_percentage': expected_increase_percentage,
-                'sma_50': df['SMA_50'].iloc[-1],
-                'rsi_14': indicators.get('RSI'),
-                'macd_line': indicators.get('MACD'),
-                'macd_signal': indicators.get('MACD.Signal'),
-                'bb_upper': indicators.get('BBUpper'),
-                'bb_middle': indicators.get('BBMiddle'),
-                'bb_lower': indicators.get('BBLower'),
-                'atr': indicators.get('ATR'),
-                'stoch_k': indicators.get('StochasticK'),
-                'stoch_d': indicators.get('StochasticD'),
-                'forecast_next_day_price': forecast,
-                'entry_price': entry_price,
-                'take_profit_price': take_profit_price,
-                'stop_loss_price': stop_loss_price,
-                'plot': plot_to_png(df, symbol)
-            }
-    except Exception as e:
-        st.error(f"İşleme hatası ({symbol}): {e}")
-        return None
-
-def main():
-    st.title('Kripto Para Analizi')
-    
-    interval = st.selectbox('Zaman Aralığı', ['1d', '1h', '30m', '15m', '5m', '1m'], index=0)
-    
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=51)
-    start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S')
-    end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S')
-    
-    if st.button('Analiz Başlat'):
-        usdt_pairs = get_all_usdt_pairs()
-        if not usdt_pairs:
-            st.error("USDT paritesi bulunamadı.")
-            return
+        st.write(f"Son Fiyat: {df['close'].iloc[-1]}")
+        st.write(f"Beklenen Fiyat: {expected_price}")
+        st.write(f"Beklenen Artış Yüzdesi: {expected_increase_percentage:.2%}")
         
-        with ThreadPoolExecutor() as executor:
-            future_to_symbol = {executor.submit(process_symbol, symbol, interval, start_str, end_str): symbol for symbol in usdt_pairs}
-            results = []
-            for future in as_completed(future_to_symbol):
-                result = future.result()
-                if result:
-                    results.append(result)
+        # Grafikler
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.plot(df.index, df['close'], label='Kapanış Fiyatı', color='blue')
+        ax.plot(df.index, df['SMA_50'], label='SMA 50', color='red')
+        ax.fill_between(df.index, df['BB_Lower'], df['BB_Upper'], color='grey', alpha=0.3, label='Bollinger Bands')
+        ax.set_xlabel('Tarih')
+        ax.set_ylabel('Fiyat')
+        ax.set_title(f'{selected_pair} Fiyat Grafiği')
+        ax.legend()
         
-        for result in results:
-            st.subheader(f"{result['coin_name']} Analizi")
-            st.write(f"Mevcut Fiyat: ${result['price']:.2f}")
-            st.write(f"Beklenen Fiyat: ${result['expected_price']:.2f}")
-            st.write(f"Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
-            st.write(f"SMA 50: ${result['sma_50']:.2f}")
-            st.write(f"RSI 14: {result['rsi_14']:.2f}")
-            st.write(f"MACD Line: {result['macd_line']:.2f}")
-            st.write(f"MACD Signal: {result['macd_signal']:.2f}")
-            st.write(f"BB Üst Bandı: ${result['bb_upper']:.2f}")
-            st.write(f"BB Orta Bandı: ${result['bb_middle']:.2f}")
-            st.write(f"BB Alt Bandı: ${result['bb_lower']:.2f}")
-            st.write(f"ATR: {result['atr']:.2f}")
-            st.write(f"Stochastic %K: {result['stoch_k']:.2f}")
-            st.write(f"Stochastic %D: {result['stoch_d']:.2f}")
-            st.write(f"Öngörülen Ertesi Gün Fiyatı: ${result['forecast_next_day_price']:.2f}")
-            st.write(f"Giriş Fiyatı: ${result['entry_price']:.2f}")
-            st.write(f"Kar Alma Fiyatı: ${result['take_profit_price']:.2f}")
-            st.write(f"Zarar Durdur Fiyatı: ${result['stop_loss_price']:.2f}")
-            st.image(f"data:image/png;base64,{result['plot']}", use_column_width=True)
-
-if __name__ == '__main__':
-    main()
+        st.pyplot(fig)
+        
+        # Beklenen fiyatı ve artışı gösteren grafik
+        fig2, ax2 = plt.subplots(figsize=(10, 5))
+        ax2.plot(df.index, df['close'], label='Kapanış Fiyatı', color='blue')
+        ax2.axhline(expected_price, color='green', linestyle='--', label='Beklenen Fiyat')
+        ax2.set_xlabel('Tarih')
+        ax2.set_ylabel('Fiyat')
+        ax2.set_title(f'{selected_pair} Beklenen Fiyat Grafiği')
+        ax2.legend()
+        
+        st.pyplot(fig2)
