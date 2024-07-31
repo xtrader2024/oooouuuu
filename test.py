@@ -148,6 +148,11 @@ def calculate_indicators(df):
     
     return df
 
+def calculate_support_resistance(df):
+    df['Support'] = df['low'].rolling(window=50).min()
+    df['Resistance'] = df['high'].rolling(window=50).max()
+    return df
+
 def generate_signals(df):
     df['Buy_Signal'] = (df['close'] > df['SMA_50']) & (df['MACD_Line'] > df['MACD_Signal']) & (df['%K'] > df['%D']) & (df['%K'] > 20)
     df['Sell_Signal'] = (df['close'] < df['SMA_50']) & (df['RSI'] > 70)
@@ -212,6 +217,12 @@ def plot_to_png(df, symbol):
     ax.plot(df.index, df['BB_Upper'], label='BB Upper Band / BB Üst Bandı', color='purple', linestyle='--')
     ax.plot(df.index, df['BB_Lower'], label='BB Lower Band / BB Alt Bandı', color='purple', linestyle='--')
     ax.plot(df.index, df['ATR'], label='ATR / ATR', color='orange')
+    
+    if 'Support' in df.columns:
+        ax.plot(df.index, df['Support'], label='Support / Destek', color='cyan', linestyle='--')
+    if 'Resistance' in df.columns:
+        ax.plot(df.index, df['Resistance'], label='Resistance / Direnç', color='magenta', linestyle='--')
+    
     ax.set_title(f'{symbol} Analysis / {symbol} Analizi')
     ax.set_xlabel('Date / Tarih')
     ax.set_ylabel('Price / Fiyat')
@@ -235,6 +246,7 @@ def process_symbol(symbol, interval, start_str, end_str, exchange):
 
     try:
         df = calculate_indicators(df)
+        df = calculate_support_resistance(df)
         df = generate_signals(df)
         forecast = forecast_next_price(df)
         expected_price, expected_increase_percentage = calculate_expected_price(df)
