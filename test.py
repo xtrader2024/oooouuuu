@@ -13,15 +13,16 @@ from decimal import Decimal, getcontext
 # Set higher precision
 getcontext().prec = 50
 
-# Most known 3 exchange codes / En çok bilinen 3 borsa kodları
+# Most known 3 exchange codes
 TOP_EXCHANGES = {
     'Binance': 'binanceus',
     'Gate.io': 'gateio',
     'Bitfinex': 'bitfinex',
+    'Huobi': 'huobi',
     'Kraken': 'kraken'
 }
 
-# Constants for indicators / Göstergeler için sabitler
+# Constants for indicators
 BOLLINGER_WINDOW = 20
 RSI_TIME_PERIOD = 14
 MACD_FAST_PERIOD = 12
@@ -30,12 +31,76 @@ MACD_SIGNAL_PERIOD = 9
 STOCH_FASTK_PERIOD = 14
 STOCH_SLOWK_PERIOD = 3
 
+# Localization dictionaries
+TEXTS = {
+    'en': {
+        'title': 'XTraderBot Spot Analysis',
+        'select_exchange': 'Select Exchange',
+        'time_interval': 'Time Interval',
+        'start_analysis': 'Start Analysis',
+        'insufficient_data': 'Insufficient data',
+        'error_initializing_exchange': 'Error initializing exchange',
+        'data_fetching_error': 'Data fetching error',
+        'error_fetching_pairs': 'Error fetching USDT pairs',
+        'no_usdt_pairs': 'No USDT pairs found.',
+        'total_pairs': 'Total pairs fetched',
+        'total_coins_analyzed': 'Total coins analyzed',
+        'current_price': 'Current Price',
+        'expected_price': 'Expected Price',
+        'expected_increase_percentage': 'Expected Increase Percentage',
+        'sma_50': 'SMA 50',
+        'rsi_14': 'RSI 14',
+        'macd_line': 'MACD Line',
+        'macd_signal': 'MACD Signal',
+        'bb_upper_band': 'BB Upper Band',
+        'bb_middle_band': 'BB Middle Band',
+        'bb_lower_band': 'BB Lower Band',
+        'atr': 'ATR',
+        'stochastic_k': 'Stochastic %K',
+        'stochastic_d': 'Stochastic %D',
+        'entry_price': 'Entry Price',
+        'take_profit_price': 'Take Profit Price',
+        'stop_loss_price': 'Stop Loss Price',
+        'plot': 'data:image/png;base64,{}'
+    },
+    'tr': {
+        'title': 'XTraderBot Spot Analizi',
+        'select_exchange': 'Borsa Seçiniz',
+        'time_interval': 'Zaman Aralığı',
+        'start_analysis': 'Analiz Başlat',
+        'insufficient_data': 'Yetersiz veri',
+        'error_initializing_exchange': 'Borsa başlatma hatası',
+        'data_fetching_error': 'Veri çekme hatası',
+        'error_fetching_pairs': 'USDT paritesi çekme hatası',
+        'no_usdt_pairs': 'USDT paritesi bulunamadı.',
+        'total_pairs': 'Toplam çekilen parite sayısı',
+        'total_coins_analyzed': 'Analiz edilen toplam coin sayısı',
+        'current_price': 'Mevcut Fiyat',
+        'expected_price': 'Beklenen Fiyat',
+        'expected_increase_percentage': 'Beklenen Artış Yüzdesi',
+        'sma_50': 'SMA 50',
+        'rsi_14': 'RSI 14',
+        'macd_line': 'MACD Çizgisi',
+        'macd_signal': 'MACD Sinyali',
+        'bb_upper_band': 'BB Üst Bandı',
+        'bb_middle_band': 'BB Orta Bandı',
+        'bb_lower_band': 'BB Alt Bandı',
+        'atr': 'ATR',
+        'stochastic_k': 'Stokastik %K',
+        'stochastic_d': 'Stokastik %D',
+        'entry_price': 'Giriş Fiyatı',
+        'take_profit_price': 'Kar Alma Fiyatı',
+        'stop_loss_price': 'Zarar Durdur Fiyatı',
+        'plot': 'data:image/png;base64,{}'
+    }
+}
+
 def initialize_exchange(exchange_code):
     try:
         exchange = getattr(ccxt, exchange_code)()
         return exchange
     except Exception as e:
-        st.error(f"Error initializing exchange ({exchange_code}): {e} / Borsa başlatma hatası ({exchange_code}): {e}")
+        st.error(f"{TEXTS[language]['error_initializing_exchange']} ({exchange_code}): {e}")
         return None
 
 def get_exchange_data(symbol, interval, start_str, end_str, exchange):
@@ -43,7 +108,7 @@ def get_exchange_data(symbol, interval, start_str, end_str, exchange):
         since = exchange.parse8601(start_str)
         klines = exchange.fetch_ohlcv(symbol, interval, since=since, limit=1000)
         if not klines or len(klines) < 51:
-            st.warning(f"Insufficient data ({symbol}) / Yetersiz veri ({symbol})")
+            st.warning(f"{TEXTS[language]['insufficient_data']} ({symbol})")
             return pd.DataFrame()
         df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -52,7 +117,7 @@ def get_exchange_data(symbol, interval, start_str, end_str, exchange):
         df = df.astype(float)
         return df
     except Exception as e:
-        st.error(f"Data fetching error ({symbol}): {e} / Veri çekme hatası ({symbol}): {e}")
+        st.error(f"{TEXTS[language]['data_fetching_error']} ({symbol}): {e}")
         return pd.DataFrame()
 
 def calculate_indicators(df):
@@ -136,13 +201,13 @@ def get_all_usdt_pairs(exchange):
         usdt_pairs = [s for s in symbols if s.endswith('/USDT')]
         return usdt_pairs
     except Exception as e:
-        st.error(f"Error fetching USDT pairs: {e} / USDT paritesi çekme hatası: {e}")
+        st.error(f"{TEXTS[language]['error_fetching_pairs']}: {e}")
         return []
 
 def plot_to_png(df, symbol):
     fig, ax = plt.subplots(figsize=(14, 7))
-    ax.plot(df.index, df['close'], label='Close Price / Kapanış Fiyatı', color='blue')
-    ax.plot(df.index, df['SMA_50'], label='50-Day SMA / 50 Günlük SMA', color='green')
+    ax.plot(df.index, df['close'], label=f'{TEXTS[language]["current_price"]}', color='blue')
+    ax.plot(df.index, df['SMA_50'], label=f'{TEXTS[language]["sma_50"]}', color='green')
     ax.plot(df.index, df['EMA_50'], label='50-Day EMA / 50 Günlük EMA', color='red')
     ax.plot(df.index, df['BB_Upper'], label='BB Upper Band / BB Üst Bandı', color='purple', linestyle='--')
     ax.plot(df.index, df['BB_Lower'], label='BB Lower Band / BB Alt Bandı', color='purple', linestyle='--')
@@ -152,7 +217,7 @@ def plot_to_png(df, symbol):
     ax.set_ylabel('Price / Fiyat')
     ax.legend()
 
-    # Ensure scientific notation is applied / Bilimsel notasyonun uygulanmasını sağla
+    # Ensure scientific notation is applied
     ax.ticklabel_format(axis='y', style='scientific', scilimits=(0,0))
 
     img = io.BytesIO()
@@ -198,36 +263,37 @@ def process_symbol(symbol, interval, start_str, end_str, exchange):
                 'plot': plot_to_png(df, symbol)
             }
     except Exception as e:
-        st.error(f"Processing error ({symbol}): {e} / İşleme hatası ({symbol}): {e}")
+        st.error(f"Processing error ({symbol}): {e}")
         return None
 
 def main():
-    st.title('XTraderBot SPot Analysis')
+    global language
+    language = st.selectbox('Select Language / Dil Seçin', ['en', 'tr'])
+    
+    st.title(TEXTS[language]['title'])
 
-    # Exchange selection box / Borsa seçim kutusu
-    selected_exchange = st.selectbox('Select Exchange / Borsa Seçiniz', list(TOP_EXCHANGES.keys()))
+    selected_exchange = st.selectbox(TEXTS[language]['select_exchange'], list(TOP_EXCHANGES.keys()))
     exchange_code = TOP_EXCHANGES[selected_exchange]
     
-    # Initialize exchange object for selected exchange / Seçilen borsa için exchange nesnesini başlat
     exchange = initialize_exchange(exchange_code)
     if not exchange:
         return
 
-    interval = st.selectbox('Time Interval / Zaman Aralığı', ['4h'], index=0)  # 4-hour interval selection / 4 saatlik aralık seçimi
+    interval = st.selectbox(TEXTS[language]['time_interval'], ['4h'], index=0)
     
     end_date = datetime.now()
-    start_date = end_date - timedelta(days=51)  # Go back 51 days / 51 gün geriye git
+    start_date = end_date - timedelta(days=51)
     start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S')
     end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S')
     
-    if st.button('Start Analysis / Analiz Başlat'):
+    if st.button(TEXTS[language]['start_analysis']):
         usdt_pairs = get_all_usdt_pairs(exchange)
         if not usdt_pairs:
-            st.error("No USDT pairs found. / USDT paritesi bulunamadı.")
+            st.error(TEXTS[language]['no_usdt_pairs'])
             return
         
         total_pairs = len(usdt_pairs)
-        st.write(f"Total pairs fetched: {total_pairs} / Toplam çekilen parite sayısı: {total_pairs}")
+        st.write(f"{TEXTS[language]['total_pairs']}: {total_pairs}")
 
         with ThreadPoolExecutor() as executor:
             future_to_symbol = {executor.submit(process_symbol, symbol, interval, start_str, end_str, exchange): symbol for symbol in usdt_pairs}
@@ -237,27 +303,27 @@ def main():
                 if result:
                     results.append(result)
         
-        st.write(f"Total coins analyzed: {len(results)} / Analiz edilen toplam coin sayısı: {len(results)}")
+        st.write(f"{TEXTS[language]['total_coins_analyzed']}: {len(results)}")
         
         for result in results:
-            with st.expander(f"{result['coin_name']} Analysis / {result['coin_name']} Analizi"):
-                st.write(f"Current Price: ${result['price']:.10f} / Mevcut Fiyat: ${result['price']:.10f}")
-                st.write(f"Expected Price: ${result['expected_price']:.10f} / Beklenen Fiyat: ${result['expected_price']:.10f}")
-                st.write(f"Expected Increase Percentage: {result['expected_increase_percentage']:.2f}% / Beklenen Artış Yüzdesi: {result['expected_increase_percentage']:.2f}%")
-                st.write(f"SMA 50: ${result['sma_50']:.10f}")
-                st.write(f"RSI 14: {result['rsi_14']:.2f}")
-                st.write(f"MACD Line: {result['macd_line']:.10f}")
-                st.write(f"MACD Signal: {result['macd_signal']:.10f}")
-                st.write(f"BB Upper Band: ${result['bb_upper']:.10f} / BB Üst Bandı: ${result['bb_upper']:.10f}")
-                st.write(f"BB Middle Band: ${result['bb_middle']:.10f} / BB Orta Bandı: ${result['bb_middle']:.10f}")
-                st.write(f"BB Lower Band: ${result['bb_lower']:.10f} / BB Alt Bandı: ${result['bb_lower']:.10f}")
-                st.write(f"ATR: {result['atr']:.10f}")
-                st.write(f"Stochastic %K: {result['stoch_k']:.2f}")
-                st.write(f"Stochastic %D: {result['stoch_d']:.2f}")
-                st.write(f"Entry Price: ${result['entry_price']:.10f} / Giriş Fiyatı: ${result['entry_price']:.10f}")
-                st.write(f"Take Profit Price: ${result['take_profit_price']:.10f} / Kar Alma Fiyatı: ${result['take_profit_price']:.10f}")
-                st.write(f"Stop Loss Price: ${result['stop_loss_price']:.10f} / Zarar Durdur Fiyatı: ${result['stop_loss_price']:.10f}")
-                st.image(f"data:image/png;base64,{result['plot']}", use_column_width=True)
+            with st.expander(f"{result['coin_name']} {TEXTS[language]['title']}"):
+                st.write(f"{TEXTS[language]['current_price']}: ${result['price']:.10f}")
+                st.write(f"{TEXTS[language]['expected_price']}: ${result['expected_price']:.10f}")
+                st.write(f"{TEXTS[language]['expected_increase_percentage']}: {result['expected_increase_percentage']:.2f}%")
+                st.write(f"{TEXTS[language]['sma_50']}: ${result['sma_50']:.10f}")
+                st.write(f"{TEXTS[language]['rsi_14']}: {result['rsi_14']:.2f}")
+                st.write(f"{TEXTS[language]['macd_line']}: {result['macd_line']:.10f}")
+                st.write(f"{TEXTS[language]['macd_signal']}: {result['macd_signal']:.10f}")
+                st.write(f"{TEXTS[language]['bb_upper_band']}: ${result['bb_upper']:.10f}")
+                st.write(f"{TEXTS[language]['bb_middle_band']}: ${result['bb_middle']:.10f}")
+                st.write(f"{TEXTS[language]['bb_lower_band']}: ${result['bb_lower']:.10f}")
+                st.write(f"{TEXTS[language]['atr']}: {result['atr']:.10f}")
+                st.write(f"{TEXTS[language]['stochastic_k']}: {result['stoch_k']:.2f}")
+                st.write(f"{TEXTS[language]['stochastic_d']}: {result['stoch_d']:.2f}")
+                st.write(f"{TEXTS[language]['entry_price']}: ${result['entry_price']:.10f}")
+                st.write(f"{TEXTS[language]['take_profit_price']}: ${result['take_profit_price']:.10f}")
+                st.write(f"{TEXTS[language]['stop_loss_price']}: ${result['stop_loss_price']:.10f}")
+                st.image(f"{TEXTS[language]['plot'].format(result['plot'])}", use_column_width=True)
 
 if __name__ == '__main__':
     main()
