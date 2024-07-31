@@ -17,6 +17,7 @@ getcontext().prec = 50
 TOP_EXCHANGES = {
     'Binance': 'binanceus',
     'Gate.io': 'gateio',
+    'Bitfinex': 'bitfinex',
     'Kraken': 'kraken'
 }
 
