@@ -15,7 +15,7 @@ getcontext().prec = 50
 
 # Most known 3 exchange codes / En çok bilinen 3 borsa kodları
 TOP_EXCHANGES = {
-    'Binance': 'binance',
+    'Binance': 'binanceus',
     'Gate.io': 'gateio',
     'Kraken': 'kraken'
 }
