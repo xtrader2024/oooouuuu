@@ -51,6 +51,140 @@ BOLLINGER_WINDOW = 20
 STOCH_FASTK_PERIOD = 14
 STOCH_SLOWK_PERIOD = 3
 
+# Language dictionaries
+translations = {
+    'English': {
+        'title': 'Cryptocurrency Data Analysis',
+        'select_pair': 'Select Cryptocurrency Pair',
+        'select_interval': 'Select Time Interval',
+        'lookback_period': 'Lookback Period (Days)',
+        'fetch_button': 'Fetch and Analyze Data',
+        'data_error': 'Data could not be retrieved. Please try again later.',
+        'last_price': 'Last Price',
+        'expected_price': 'Expected Price',
+        'expected_increase_percentage': 'Expected Increase Percentage',
+        'buy_signals': 'Buy Signals',
+        'sell_signals': 'Sell Signals',
+        'indicators': 'Indicators',
+        'sma_50': 'SMA 50',
+        'ema_50': 'EMA 50',
+        'rsi': 'RSI',
+        'macd_line': 'MACD Line',
+        'macd_signal': 'MACD Signal',
+        'atr': 'ATR',
+        'percent_k': '%K',
+        'percent_d': '%D',
+        'bollinger_upper': 'Bollinger Bands (Upper)',
+        'bollinger_lower': 'Bollinger Bands (Lower)',
+        'chart_title': 'Price Chart',
+        'expected_price_chart_title': 'Expected Price Chart'
+    },
+    'Turkish': {
+        'title': 'Kripto Para Veri Analizi',
+        'select_pair': 'Kripto Para Çifti Seçin',
+        'select_interval': 'Zaman Aralığı Seçin',
+        'lookback_period': 'Veri Gerçekleme Süresi (Gün)',
+        'fetch_button': 'Verileri Getir ve Analiz Et',
+        'data_error': 'Veri alınamadı. Lütfen daha sonra tekrar deneyin.',
+        'last_price': 'Son Fiyat',
+        'expected_price': 'Beklenen Fiyat',
+        'expected_increase_percentage': 'Beklenen Artış Yüzdesi',
+        'buy_signals': 'Alış Sinyalleri',
+        'sell_signals': 'Satış Sinyalleri',
+        'indicators': 'Göstergeler',
+        'sma_50': 'SMA 50',
+        'ema_50': 'EMA 50',
+        'rsi': 'RSI',
+        'macd_line': 'MACD Çizgisi',
+        'macd_signal': 'MACD Sinyal',
+        'atr': 'ATR',
+        'percent_k': '%K',
+        'percent_d': '%D',
+        'bollinger_upper': 'Bollinger Bands (Üst)',
+        'bollinger_lower': 'Bollinger Bands (Alt)',
+        'chart_title': 'Fiyat Grafiği',
+        'expected_price_chart_title': 'Beklenen Fiyat Grafiği'
+    },
+    'Chinese': {
+        'title': '加密货币数据分析',
+        'select_pair': '选择加密货币对',
+        'select_interval': '选择时间间隔',
+        'lookback_period': '回溯周期（天）',
+        'fetch_button': '获取并分析数据',
+        'data_error': '无法获取数据。请稍后再试。',
+        'last_price': '最新价格',
+        'expected_price': '预期价格',
+        'expected_increase_percentage': '预期增长百分比',
+        'buy_signals': '买入信号',
+        'sell_signals': '卖出信号',
+        'indicators': '指标',
+        'sma_50': 'SMA 50',
+        'ema_50': 'EMA 50',
+        'rsi': 'RSI',
+        'macd_line': 'MACD 线',
+        'macd_signal': 'MACD 信号',
+        'atr': 'ATR',
+        'percent_k': '%K',
+        'percent_d': '%D',
+        'bollinger_upper': '布林带（上）',
+        'bollinger_lower': '布林带（下）',
+        'chart_title': '价格图表',
+        'expected_price_chart_title': '预期价格图表'
+    },
+    'Hindi': {
+        'title': 'क्रिप्टोकरेंसी डेटा विश्लेषण',
+        'select_pair': 'क्रिप्टोकरेंसी पेयर चुनें',
+        'select_interval': 'समय अंतराल चुनें',
+        'lookback_period': 'लुकबैक अवधि (दिन)',
+        'fetch_button': 'डेटा लाएं और विश्लेषण करें',
+        'data_error': 'डेटा प्राप्त नहीं हो सका। कृपया बाद में पुनः प्रयास करें।',
+        'last_price': 'अंतिम मूल्य',
+        'expected_price': 'अपेक्षित मूल्य',
+        'expected_increase_percentage': 'अपेक्षित वृद्धि प्रतिशत',
+        'buy_signals': 'खरीद संकेत',
+        'sell_signals': 'बेचने के संकेत',
+        'indicators': 'संकेतक',
+        'sma_50': 'SMA 50',
+        'ema_50': 'EMA 50',
+        'rsi': 'RSI',
+        'macd_line': 'MACD लाइन',
+        'macd_signal': 'MACD सिग्नल',
+        'atr': 'ATR',
+        'percent_k': '%K',
+        'percent_d': '%D',
+        'bollinger_upper': 'बोलिंजर बैंड (ऊपरी)',
+        'bollinger_lower': 'बोलिंजर बैंड (निचला)',
+        'chart_title': 'मूल्य चार्ट',
+        'expected_price_chart_title': 'अपेक्षित मूल्य चार्ट'
+    },
+    'Arabic': {
+        'title': 'تحليل بيانات العملات المشفرة',
+        'select_pair': 'اختيار زوج العملة المشفرة',
+        'select_interval': 'اختيار فترة زمنية',
+        'lookback_period': 'فترة العودة (أيام)',
+        'fetch_button': 'احصل على البيانات وقم بالتحليل',
+        'data_error': 'تعذر استرداد البيانات. يرجى المحاولة مرة أخرى لاحقًا.',
+        'last_price': 'آخر سعر',
+        'expected_price': 'السعر المتوقع',
+        'expected_increase_percentage': 'نسبة الزيادة المتوقعة',
+        'buy_signals': 'إشارات الشراء',
+        'sell_signals': 'إشارات البيع',
+        'indicators': 'المؤشرات',
+        'sma_50': 'SMA 50',
+        'ema_50': 'EMA 50',
+        'rsi': 'RSI',
+        'macd_line': 'MACD الخط',
+        'macd_signal': 'MACD الإشارة',
+        'atr': 'ATR',
+        'percent_k': '%K',
+        'percent_d': '%D',
+        'bollinger_upper': 'باند بولينجر (علوي)',
+        'bollinger_lower': 'باند بولينجر (سفلي)',
+        'chart_title': 'مخطط الأسعار',
+        'expected_price_chart_title': 'مخطط السعر المتوقع'
+    }
+}
+
 def fetch_data(symbol, interval='daily', lookback=365):
     symbol = symbol.split('/')[0].lower()  # CoinGecko için sadece ilk kısmı kullan
     granularity = 'daily' if interval == 'daily' else 'hourly'
@@ -149,81 +283,62 @@ def calculate_expected_price(df):
     return expected_price, expected_increase_percentage
 
 # Streamlit arayüzü
-st.title('Cryptocurrency Data Analysis / Kripto Para Veri Analizi')
+language = st.selectbox('Select Language / Dil Seçin', ['English', 'Turkish', 'Chinese', 'Hindi', 'Arabic'])
 
-language = st.selectbox('Select Language / Dil Seçin', ['English', 'Turkish'])
+st.title(translations[language]['title'])
 
-selected_pair = st.selectbox('Select Cryptocurrency Pair / Kripto Para Çifti Seçin', USDT_PAIRS)
-data_interval = st.selectbox('Select Time Interval / Zaman Aralığı Seçin', ['daily', 'hourly'])
-lookback_period = st.slider('Lookback Period (Days) / Veri Gerçekleme Süresi (Gün)', min_value=30, max_value=365, value=90)
+selected_pair = st.selectbox(translations[language]['select_pair'], USDT_PAIRS)
+data_interval = st.selectbox(translations[language]['select_interval'], ['daily', 'hourly'])
+lookback_period = st.slider(translations[language]['lookback_period'], min_value=30, max_value=365, value=90)
 
-if st.button('Fetch and Analyze Data / Verileri Getir ve Analiz Et'):
+if st.button(translations[language]['fetch_button']):
     df = fetch_data(selected_pair, interval=data_interval, lookback=lookback_period)
     if df.empty:
-        st.error('Data could not be retrieved. Please try again later. / Veri alınamadı. Lütfen daha sonra tekrar deneyin.')
+        st.error(translations[language]['data_error'])
     else:
         df = calculate_indicators(df)
         df = generate_signals(df)
         forecast = forecast_next_price(df)
         expected_price, expected_increase_percentage = calculate_expected_price(df)
         
-        if language == 'English':
-            st.write(f"**Last Price:** {df['close'].iloc[-1]}")
-            st.write(f"**Expected Price:** {expected_price}")
-            st.write(f"**Expected Increase Percentage:** {expected_increase_percentage:.2%}")
-            st.write(f"**Buy Signals:** {df['Buy_Signal'].sum()} days")
-            st.write(f"**Sell Signals:** {df['Sell_Signal'].sum()} days")
-            
-            st.write("### Indicators / Göstergeler")
-            st.write(f"**SMA 50:** {df['SMA_50'].iloc[-1]}")
-            st.write(f"**EMA 50:** {df['EMA_50'].iloc[-1]}")
-            st.write(f"**RSI:** {df['RSI'].iloc[-1]}")
-            st.write(f"**MACD Line:** {df['MACD_Line'].iloc[-1]}")
-            st.write(f"**MACD Signal:** {df['MACD_Signal'].iloc[-1]}")
-            st.write(f"**ATR:** {df['ATR'].iloc[-1]}")
-            st.write(f"**%K:** {df['%K'].iloc[-1]}")
-            st.write(f"**%D:** {df['%D'].iloc[-1]}")
-            st.write(f"**Bollinger Bands (Upper):** {df['BB_Upper'].iloc[-1]}")
-            st.write(f"**Bollinger Bands (Lower):** {df['BB_Lower'].iloc[-1]}")
-            
-        else:
-            st.write(f"**Son Fiyat:** {df['close'].iloc[-1]}")
-            st.write(f"**Beklenen Fiyat:** {expected_price}")
-            st.write(f"**Beklenen Artış Yüzdesi:** {expected_increase_percentage:.2%}")
-            st.write(f"**Alış Sinyalleri:** {df['Buy_Signal'].sum()} gün")
-            st.write(f"**Satış Sinyalleri:** {df['Sell_Signal'].sum()} gün")
-            
-            st.write("### Göstergeler / Indicators")
-            st.write(f"**SMA 50:** {df['SMA_50'].iloc[-1]}")
-            st.write(f"**EMA 50:** {df['EMA_50'].iloc[-1]}")
-            st.write(f"**RSI:** {df['RSI'].iloc[-1]}")
-            st.write(f"**MACD Çizgisi:** {df['MACD_Line'].iloc[-1]}")
-            st.write(f"**MACD Sinyal:** {df['MACD_Signal'].iloc[-1]}")
-            st.write(f"**ATR:** {df['ATR'].iloc[-1]}")
-            st.write(f"**%K:** {df['%K'].iloc[-1]}")
-            st.write(f"**%D:** {df['%D'].iloc[-1]}")
-            st.write(f"**Bollinger Bands (Üst):** {df['BB_Upper'].iloc[-1]}")
-            st.write(f"**Bollinger Bands (Alt):** {df['BB_Lower'].iloc[-1]}")
+        st.write(f"**{translations[language]['last_price']}:** {df['close'].iloc[-1]}")
+        st.write(f"**{translations[language]['expected_price']}:** {expected_price}")
+        st.write(f"**{translations[language]['expected_increase_percentage']}:** {expected_increase_percentage:.2%}")
+        st.write(f"**{translations[language]['buy_signals']}:** {df['Buy_Signal'].sum()} days")
+        st.write(f"**{translations[language]['sell_signals']}:** {df['Sell_Signal'].sum()} days")
         
-        # Grafikler
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.plot(df.index, df['close'], label='Close Price / Kapanış Fiyatı', color='blue')
-        ax.plot(df.index, df['SMA_50'], label='SMA 50', color='red')
-        ax.fill_between(df.index, df['BB_Lower'], df['BB_Upper'], color='grey', alpha=0.3, label='Bollinger Bands')
-        ax.set_xlabel('Date / Tarih')
-        ax.set_ylabel('Price / Fiyat')
-        ax.set_title(f'{selected_pair} Price Chart / {selected_pair} Fiyat Grafiği')
+        st.write(f"### {translations[language]['indicators']}")
+        st.write(f"**{translations[language]['sma_50']}:** {df['SMA_50'].iloc[-1]}")
+        st.write(f"**{translations[language]['ema_50']}:** {df['EMA_50'].iloc[-1]}")
+        st.write(f"**{translations[language]['rsi']}:** {df['RSI'].iloc[-1]}")
+        st.write(f"**{translations[language]['macd_line']}:** {df['MACD_Line'].iloc[-1]}")
+        st.write(f"**{translations[language]['macd_signal']}:** {df['MACD_Signal'].iloc[-1]}")
+        st.write(f"**{translations[language]['atr']}:** {df['ATR'].iloc[-1]}")
+        st.write(f"**{translations[language]['percent_k']}:** {df['%K'].iloc[-1]}")
+        st.write(f"**{translations[language]['percent_d']}:** {df['%D'].iloc[-1]}")
+        st.write(f"**{translations[language]['bollinger_upper']}:** {df['BB_Upper'].iloc[-1]}")
+        st.write(f"**{translations[language]['bollinger_lower']}:** {df['BB_Lower'].iloc[-1]}")
+        
+        # Grafikleri oluşturma
+        st.write(f"### {translations[language]['chart_title']}")
+        fig, ax = plt.subplots()
+        ax.plot(df.index, df['close'], label='Price')
+        ax.plot(df.index, df['SMA_50'], label='SMA 50')
+        ax.plot(df.index, df['EMA_50'], label='EMA 50')
+        ax.plot(df.index, df['BB_Upper'], label='Bollinger Upper', linestyle='--')
+        ax.plot(df.index, df['BB_Lower'], label='Bollinger Lower', linestyle='--')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Price')
+        ax.set_title(translations[language]['chart_title'])
         ax.legend()
-        
         st.pyplot(fig)
         
-        # Beklenen fiyatı ve artışı gösteren grafik
-        fig2, ax2 = plt.subplots(figsize=(10, 5))
-        ax2.plot(df.index, df['close'], label='Close Price / Kapanış Fiyatı', color='blue')
-        ax2.axhline(expected_price, color='green', linestyle='--', label='Expected Price / Beklenen Fiyat')
-        ax2.set_xlabel('Date / Tarih')
-        ax2.set_ylabel('Price / Fiyat')
-        ax2.set_title(f'{selected_pair} Expected Price Chart / {selected_pair} Beklenen Fiyat Grafiği')
-        ax2.legend()
-        
-        st.pyplot(fig2)
+        st.write(f"### {translations[language]['expected_price_chart_title']}")
+        fig, ax = plt.subplots()
+        ax.plot(df.index, df['close'], label='Price')
+        ax.axhline(y=expected_price, color='r', linestyle='--', label='Expected Price')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Price')
+        ax.set_title(translations[language]['expected_price_chart_title'])
+        ax.legend()
+        st.pyplot(fig)
