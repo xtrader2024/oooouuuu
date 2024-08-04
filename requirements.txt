@@ -9,3 +9,4 @@ asyncio
 websockets
 yfinance==0.2.41
 matplotlib
+pyplot
