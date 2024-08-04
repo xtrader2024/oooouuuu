@@ -6,7 +6,7 @@ import requests
 import statsmodels.api as sm
 from datetime import datetime, timedelta
 
-# CoinGecko API URL'si
+# CoinGecko API URL
 COINGECKO_API_URL = "https://api.coingecko.com/api/v3/"
 
 # USDT pariteleri - CoinGecko'daki coin isimleri
@@ -149,45 +149,56 @@ def calculate_expected_price(df):
     return expected_price, expected_increase_percentage
 
 # Streamlit arayüzü
-st.title('Kripto Para Veri Analizi')
+st.title('Cryptocurrency Data Analysis / Kripto Para Veri Analizi')
 
-selected_pair = st.selectbox('Kripto Para Çifti Seçin', USDT_PAIRS)
-data_interval = st.selectbox('Zaman Aralığı Seçin', ['daily', 'hourly'])
-lookback_period = st.slider('Veri Gerçekleme Süresi (Gün)', min_value=30, max_value=365, value=90)
+language = st.selectbox('Select Language / Dil Seçin', ['English', 'Turkish'])
 
-if st.button('Verileri Getir ve Analiz Et'):
+selected_pair = st.selectbox('Select Cryptocurrency Pair / Kripto Para Çifti Seçin', USDT_PAIRS)
+data_interval = st.selectbox('Select Time Interval / Zaman Aralığı Seçin', ['daily', 'hourly'])
+lookback_period = st.slider('Lookback Period (Days) / Veri Gerçekleme Süresi (Gün)', min_value=30, max_value=365, value=90)
+
+if st.button('Fetch and Analyze Data / Verileri Getir ve Analiz Et'):
     df = fetch_data(selected_pair, interval=data_interval, lookback=lookback_period)
     if df.empty:
-        st.error('Veri alınamadı. Lütfen daha sonra tekrar deneyin.')
+        st.error('Data could not be retrieved. Please try again later. / Veri alınamadı. Lütfen daha sonra tekrar deneyin.')
     else:
         df = calculate_indicators(df)
         df = generate_signals(df)
         forecast = forecast_next_price(df)
         expected_price, expected_increase_percentage = calculate_expected_price(df)
         
-        st.write(f"Son Fiyat: {df['close'].iloc[-1]}")
-        st.write(f"Beklenen Fiyat: {expected_price}")
-        st.write(f"Beklenen Artış Yüzdesi: {expected_increase_percentage:.2%}")
+        if language == 'English':
+            st.write(f"Last Price: {df['close'].iloc[-1]}")
+            st.write(f"Expected Price: {expected_price}")
+            st.write(f"Expected Increase Percentage: {expected_increase_percentage:.2%}")
+            st.write(f"Buy Signals: {df['Buy_Signal'].sum()} days")
+            st.write(f"Sell Signals: {df['Sell_Signal'].sum()} days")
+        else:
+            st.write(f"Son Fiyat: {df['close'].iloc[-1]}")
+            st.write(f"Beklenen Fiyat: {expected_price}")
+            st.write(f"Beklenen Artış Yüzdesi: {expected_increase_percentage:.2%}")
+            st.write(f"Alış Sinyalleri: {df['Buy_Signal'].sum()} gün")
+            st.write(f"Satış Sinyalleri: {df['Sell_Signal'].sum()} gün")
         
         # Grafikler
         fig, ax = plt.subplots(figsize=(10, 5))
-        ax.plot(df.index, df['close'], label='Kapanış Fiyatı', color='blue')
+        ax.plot(df.index, df['close'], label='Close Price / Kapanış Fiyatı', color='blue')
         ax.plot(df.index, df['SMA_50'], label='SMA 50', color='red')
         ax.fill_between(df.index, df['BB_Lower'], df['BB_Upper'], color='grey', alpha=0.3, label='Bollinger Bands')
-        ax.set_xlabel('Tarih')
-        ax.set_ylabel('Fiyat')
-        ax.set_title(f'{selected_pair} Fiyat Grafiği')
+        ax.set_xlabel('Date / Tarih')
+        ax.set_ylabel('Price / Fiyat')
+        ax.set_title(f'{selected_pair} Price Chart / {selected_pair} Fiyat Grafiği')
         ax.legend()
         
         st.pyplot(fig)
         
         # Beklenen fiyatı ve artışı gösteren grafik
         fig2, ax2 = plt.subplots(figsize=(10, 5))
-        ax2.plot(df.index, df['close'], label='Kapanış Fiyatı', color='blue')
-        ax2.axhline(expected_price, color='green', linestyle='--', label='Beklenen Fiyat')
-        ax2.set_xlabel('Tarih')
-        ax2.set_ylabel('Fiyat')
-        ax2.set_title(f'{selected_pair} Beklenen Fiyat Grafiği')
+        ax2.plot(df.index, df['close'], label='Close Price / Kapanış Fiyatı', color='blue')
+        ax2.axhline(expected_price, color='green', linestyle='--', label='Expected Price / Beklenen Fiyat')
+        ax2.set_xlabel('Date / Tarih')
+        ax2.set_ylabel('Price / Fiyat')
+        ax2.set_title(f'{selected_pair} Expected Price Chart / {selected_pair} Beklenen Fiyat Grafiği')
         ax2.legend()
         
         st.pyplot(fig2)
