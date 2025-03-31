@@ -1,27 +1,36 @@
 import streamlit as st
-import sqlite3
+import pandas as pd
+import os
+
+CSV_FILE = "appointments.csv"
 
 def get_appointments():
-    conn = sqlite3.connect("appointments.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, name, phone, date, time, massage_type, status FROM appointments")
-    data = cursor.fetchall()
-    conn.close()
-    return data
+    """CSV dosyasından randevuları oku"""
+    if not os.path.exists(CSV_FILE):
+        return []
+    
+    df = pd.read_csv(CSV_FILE)
+    return df.to_dict(orient="records")
+
+def save_appointments(appointments):
+    """Randevuları CSV dosyasına kaydet"""
+    df = pd.DataFrame(appointments)
+    df.to_csv(CSV_FILE, index=False)
 
 def update_appointment_status(appointment_id, status):
-    conn = sqlite3.connect("appointments.db")
-    cursor = conn.cursor()
-    cursor.execute("UPDATE appointments SET status = ? WHERE id = ?", (status, appointment_id))
-    conn.commit()
-    conn.close()
+    """Belirtilen randevunun durumunu güncelle"""
+    appointments = get_appointments()
+    for appointment in appointments:
+        if appointment["id"] == appointment_id:
+            appointment["status"] = status
+            break
+    save_appointments(appointments)
 
 def delete_appointment(appointment_id):
-    conn = sqlite3.connect("appointments.db")
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
-    conn.commit()
-    conn.close()
+    """Belirtilen randevuyu sil"""
+    appointments = get_appointments()
+    appointments = [appt for appt in appointments if appt["id"] != appointment_id]
+    save_appointments(appointments)
 
 def admin_page():
     st.title("Randevu Yönetim Paneli")
@@ -33,7 +42,16 @@ def admin_page():
         return
     
     for appointment in appointments:
-        id, name, phone, date, time, massage_type, status = appointment
+        id, name, phone, date, time, massage_type, status = (
+            appointment["id"],
+            appointment["name"],
+            appointment["phone"],
+            appointment["date"],
+            appointment["time"],
+            appointment["massage_type"],
+            appointment["status"]
+        )
+
         with st.expander(f"{name} - {date} {time} ({massage_type}) [Durum: {status}]"):
             st.write(f"**Telefon:** {phone}")
             st.write(f"**Tarih:** {date}")
