@@ -1,27 +1,32 @@
 import streamlit as st
-import requests
 import json
+import os
 from datetime import datetime
 
-# JSON dosya URL'si
-JSON_URL = "https://masajostim.com.tr/randevular.json"
+JSON_FILE = "randevular.json"
 
-# Randevuları getir
-def get_randevular():
-    try:
-        response = requests.get(JSON_URL)
-        if response.status_code == 200:
-            return response.json()
+# 📌 JSON verilerini yükle
+def load_randevular():
+    if "randevular" not in st.session_state:
+        if os.path.exists(JSON_FILE):
+            try:
+                with open(JSON_FILE, 'r') as f:
+                    st.session_state.randevular = json.load(f)
+            except json.JSONDecodeError:
+                st.session_state.randevular = []
         else:
-            return []
-    except Exception as e:
-        st.error(f"Randevular yüklenirken hata oluştu: {str(e)}")
-        return []
+            st.session_state.randevular = []
 
-# Yeni randevu kaydetme
-def save_randevu(ad, telefon, tarih, saat, masaj_turu):
+# 📌 Randevuları kaydet
+def save_randevular():
+    with open(JSON_FILE, 'w') as f:
+        json.dump(st.session_state.randevular, f, indent=4)
+
+# 📌 Yeni randevu ekleme
+def add_randevu(ad, telefon, tarih, saat, masaj_turu):
+    new_id = len(st.session_state.randevular) + 1
     new_randevu = {
-        "id": int(datetime.now().timestamp()),  # Benzersiz ID
+        "id": new_id,
         "ad": ad,
         "telefon": telefon,
         "tarih": str(tarih),
@@ -29,69 +34,40 @@ def save_randevu(ad, telefon, tarih, saat, masaj_turu):
         "masaj_turu": masaj_turu,
         "durum": "Beklemede"
     }
-    
-    try:
-        # Mevcut randevuları al
-        randevular = get_randevular()
-        randevular.append(new_randevu)
+    st.session_state.randevular.append(new_randevu)
+    save_randevular()
 
-        # JSON'a yaz
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(JSON_URL, data=json.dumps(randevular), headers=headers)
-        
-        if response.status_code == 200:
-            return True
-        else:
-            return False
-    except Exception as e:
-        st.error(f"Randevu kaydedilirken hata oluştu: {str(e)}")
-        return False
-
-# Randevu durumunu güncelleme
-def update_randevu_status(randevu_id, yeni_durum):
-    randevular = get_randevular()
-    for randevu in randevular:
-        if randevu["id"] == randevu_id:
-            randevu["durum"] = yeni_durum
-            break
-
-    try:
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(JSON_URL, data=json.dumps(randevular), headers=headers)
-        return response.status_code == 200
-    except Exception as e:
-        st.error(f"Durum güncellenirken hata oluştu: {str(e)}")
-        return False
-
-# Admin paneli
-def admin_panel():
+# 📌 Randevu yönetim paneli
+def admin_page():
     st.title("📋 Randevu Yönetim Paneli")
 
-    randevular = get_randevular()
-
-    if not randevular:
+    if not st.session_state.randevular:
         st.warning("Henüz randevu alınmamış.")
         return
 
-    for randevu in randevular:
-        id, ad, telefon, tarih, saat, masaj_turu, durum = (
-            randevu["id"], randevu["ad"], randevu["telefon"], 
-            randevu["tarih"], randevu["saat"], randevu["masaj_turu"], randevu["durum"]
-        )
-        with st.expander(f"📅 {tarih} - {saat} | {ad} ({masaj_turu}) [{durum}]"):
-            st.write(f"**📞 Telefon:** {telefon}")
-            
-            if durum == "Beklemede":
-                if st.button(f"✅ Onayla ({id})"):
-                    update_randevu_status(id, "Onaylandı")
-                    st.experimental_rerun()
-                if st.button(f"❌ İptal Et ({id})"):
-                    update_randevu_status(id, "İptal Edildi")
-                    st.experimental_rerun()
+    for randevu in st.session_state.randevular:
+        with st.expander(f"{randevu['ad']} - {randevu['tarih']} {randevu['saat']} ({randevu['masaj_turu']})"):
+            st.write(f"**Telefon:** {randevu['telefon']}")
+            st.write(f"**Durum:** {randevu['durum']}")
 
-# Randevu alma bölümü
-def randevu_alma():
-    st.title("💆‍♂️ Randevu Alma Sistemi")
+            if st.button(f"✅ Onayla {randevu['id']}", key=f"onay_{randevu['id']}"):
+                randevu["durum"] = "Onaylandı"
+                save_randevular()
+                st.experimental_rerun()
+
+            if st.button(f"❌ İptal Et {randevu['id']}", key=f"iptal_{randevu['id']}"):
+                randevu["durum"] = "İptal Edildi"
+                save_randevular()
+                st.experimental_rerun()
+
+            if st.button(f"🗑️ Sil {randevu['id']}", key=f"sil_{randevu['id']}"):
+                st.session_state.randevular.remove(randevu)
+                save_randevular()
+                st.experimental_rerun()
+
+# 📌 Kullanıcı randevu alma ekranı
+def user_page():
+    st.title("📅 Randevu Alma Sistemi")
 
     ad = st.text_input("Adınız ve Soyadınız")
     telefon = st.text_input("Telefon Numaranız")
@@ -99,30 +75,24 @@ def randevu_alma():
     saat = st.time_input("Randevu Saati")
     masaj_turu = st.selectbox("Masaj Türü", ["Klasik Masaj (60 dk)", "Medikal Masaj (60 dk)", "Aromaterapi Masajı (60 dk)", "Thai Masajı", "Spor Masajı (50 dk)"])
 
-    if st.button("📅 Randevu Al"):
+    if st.button("📌 Randevu Al"):
         if ad and telefon:
-            success = save_randevu(ad, telefon, tarih, saat, masaj_turu)
-            if success:
-                st.success("✅ Randevunuz başarıyla alındı!")
-            else:
-                st.error("❌ Randevu kaydedilirken hata oluştu.")
+            add_randevu(ad, telefon, tarih, saat, masaj_turu)
+            st.success("✅ Randevunuz başarıyla alındı!")
         else:
             st.error("⚠️ Lütfen tüm alanları doldurun.")
 
-    # Mevcut randevuları göster
-    st.subheader("📌 Mevcut Randevularınız")
-    randevular = get_randevular()
-    
-    if randevular:
-        for r in randevular:
+    st.write("### 📌 Mevcut Randevularınız")
+    if st.session_state.randevular:
+        for r in st.session_state.randevular:
             st.write(f"📅 {r['tarih']} 🕒 {r['saat']} - {r['masaj_turu']} ({r['durum']})")
     else:
         st.info("📭 Henüz randevunuz yok.")
 
-# Sayfa seçimi
-sayfa = st.sidebar.radio("📍 Sayfa Seçimi", ["Randevu Al", "Admin Paneli"])
-
-if sayfa == "Randevu Al":
-    randevu_alma()
+# 📌 Sayfa seçimi
+load_randevular()
+sayfa = st.sidebar.radio("Menü", ["Kullanıcı", "Admin"])
+if sayfa == "Kullanıcı":
+    user_page()
 else:
-    admin_panel()
+    admin_page()
