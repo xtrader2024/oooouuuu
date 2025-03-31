@@ -1,51 +1,60 @@
 import streamlit as st
-from datetime import datetime, timedelta
-import webbrowser
+import sqlite3
+from datetime import datetime
 
-# Sayfa başlığı
-st.title("Bilgi ve Rezervasyon")
+# Veritabanı bağlantısı
+conn = sqlite3.connect("randevular.db", check_same_thread=False)
+cursor = conn.cursor()
 
-# Şube bilgileri
-selected_branch = "Ostim - Batıkent Şube"
-st.subheader(selected_branch)
-st.write("Harika bir masaj deneyimi için doğru adrestesiniz! Ostim ve Batıkent’e yalnızca birkaç dakika uzaklıkta, özel merkezimizde profesyonel masaj hizmetleri sunmaktayız. Hamam hizmetleri ve kese köpük hizmetimiz yoktur. Odalarımızda duş kabini bulunmaktadır.")
-st.write("Çalışma Saatleri: 12:00 - 21:00")
-st.write("Adres: Ostim, Alınteri Blv. Ostim İş Merkezleri A Blok No:25 Kat: 4 Daire 33, 06374 Yenimahalle/Ankara")
+# Tablo oluşturma
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS randevular (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    isim TEXT,
+    telefon TEXT,
+    tarih TEXT,
+    saat TEXT,
+    masaj_turu TEXT,
+    durum TEXT DEFAULT 'Beklemede'
+)
+''')
+conn.commit()
 
-# Google Maps bağlantısı
-if st.button("Konum Göster"):
-    webbrowser.open("https://www.google.com/search?q=fizyomasaj+ostim")
+# Kullanıcı arayüzü
+st.title("Randevu Sistemi")
+menu = ["Randevu Al", "Admin Paneli"]
+secim = st.sidebar.selectbox("Menü", menu)
 
-# Masaj paketleri
-st.subheader("Masaj Paketleri")
-packages = [
-    {"name": "Klasik Masaj (60 dk)", "price": "990 ₺", "description": "Vücudu rahatlatan geleneksel masaj."},
-    {"name": "Klasik Masaj (90 dk)", "price": "1400 ₺", "description": "Uzun süreli rahatlama sağlayan klasik masaj."},
-    {"name": "Medikal Masaj (60 dk)", "price": "1400 ₺", "description": "Kasları derinlemesine rahatlatan masaj."},
-    {"name": "Mix Terapi (60 dk)", "price": "1400 ₺", "description": "Sıcak taş, antistres ve klasik masaj karışımı."}
-]
+if secim == "Randevu Al":
+    st.subheader("Randevu Al")
+    isim = st.text_input("Adınız ve Soyadınız")
+    telefon = st.text_input("Telefon Numaranız")
+    tarih = st.date_input("Tarih Seçin", min_value=datetime.today())
+    saat = st.time_input("Saat Seçin")
+    masaj_turu = st.selectbox("Masaj Türü", ["Klasik Masaj", "Medikal Masaj", "Aromaterapi", "Derin Doku", "Spor Masajı"])
+    
+    if st.button("Randevu Al"):
+        cursor.execute("INSERT INTO randevular (isim, telefon, tarih, saat, masaj_turu) VALUES (?, ?, ?, ?, ?)",
+                       (isim, telefon, str(tarih), str(saat), masaj_turu))
+        conn.commit()
+        st.success("Randevunuz başarıyla alındı!")
 
-# Paketleri listeleme
-selected_package = st.selectbox("Masaj Paketinizi Seçin", [p["name"] for p in packages])
-selected_price = next(p["price"] for p in packages if p["name"] == selected_package)
-st.write(f"Seçilen Paket: **{selected_package}**")
-st.write(f"Fiyat: **{selected_price}**")
-
-# Randevu tarihi ve saati seçimi
-default_date = datetime.today() + timedelta(days=1)
-selected_date = st.date_input("Randevu Tarihi Seçin", min_value=datetime.today(), value=default_date)
-selected_time = st.time_input("Randevu Saati Seçin", value=datetime.strptime("12:00", "%H:%M").time())
-
-# WhatsApp ile rezervasyon
-def generate_whatsapp_message():
-    message = (f"Merhaba, {selected_branch} şubesinden {selected_package} paketi için "
-               f"{selected_date} tarihinde saat {selected_time.strftime('%H:%M')} için randevu almak istiyorum."
-               " Lütfen bana dönüş yapar mısınız?")
-    return message.replace(" ", "%20")
-
-if st.button("WhatsApp ile Randevu Talep Et"):
-    whatsapp_url = f"https://wa.me/905305647326?text={generate_whatsapp_message()}"
-    webbrowser.open(whatsapp_url)
-
-if st.button("Web Sitesine Git"):
-    webbrowser.open("https://masajostim.com.tr")
+elif secim == "Admin Paneli":
+    st.subheader("Admin Paneli")
+    admin_sifre = st.text_input("Admin Şifresi", type="password")
+    if admin_sifre == "admin123":
+        st.success("Giriş Başarılı!")
+        
+        randevular = cursor.execute("SELECT * FROM randevular").fetchall()
+        for randevu in randevular:
+            st.write(f"ID: {randevu[0]} | {randevu[1]} - {randevu[2]} - {randevu[3]} - {randevu[4]} - {randevu[5]} - Durum: {randevu[6]}")
+            if st.button(f"Onayla {randevu[0]}"):
+                cursor.execute("UPDATE randevular SET durum='Onaylandı' WHERE id=?", (randevu[0],))
+                conn.commit()
+                st.experimental_rerun()
+            if st.button(f"İptal Et {randevu[0]}"):
+                cursor.execute("DELETE FROM randevular WHERE id=?", (randevu[0],))
+                conn.commit()
+                st.experimental_rerun()
+    else:
+        st.warning("Yanlış şifre!")
