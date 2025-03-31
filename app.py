@@ -1,7 +1,7 @@
 import streamlit as st
 import json
 import os
-from datetime import datetime
+from datetime import datetime, time, timedelta
 
 JSON_FILE = "randevular.json"
 
@@ -24,75 +24,59 @@ def save_randevular():
 
 # 📌 Yeni randevu ekleme
 def add_randevu(ad, telefon, tarih, saat, masaj_turu):
-    new_id = len(st.session_state.randevular) + 1
     new_randevu = {
-        "id": new_id,
         "ad": ad,
         "telefon": telefon,
         "tarih": str(tarih),
         "saat": str(saat),
-        "masaj_turu": masaj_turu,
-        "durum": "Beklemede"
+        "masaj_turu": masaj_turu
     }
     st.session_state.randevular.append(new_randevu)
     save_randevular()
 
-# 📌 Randevu yönetim paneli
-def admin_page():
-    st.title("📋 Randevu Yönetim Paneli")
-
-    if not st.session_state.randevular:
-        st.warning("Henüz randevu alınmamış.")
-        return
-
-    for randevu in st.session_state.randevular:
-        with st.expander(f"{randevu['ad']} - {randevu['tarih']} {randevu['saat']} ({randevu['masaj_turu']})"):
-            st.write(f"**Telefon:** {randevu['telefon']}")
-            st.write(f"**Durum:** {randevu['durum']}")
-
-            if st.button(f"✅ Onayla {randevu['id']}", key=f"onay_{randevu['id']}"):
-                randevu["durum"] = "Onaylandı"
-                save_randevular()
-                st.experimental_rerun()
-
-            if st.button(f"❌ İptal Et {randevu['id']}", key=f"iptal_{randevu['id']}"):
-                randevu["durum"] = "İptal Edildi"
-                save_randevular()
-                st.experimental_rerun()
-
-            if st.button(f"🗑️ Sil {randevu['id']}", key=f"sil_{randevu['id']}"):
-                st.session_state.randevular.remove(randevu)
-                save_randevular()
-                st.experimental_rerun()
+# 📌 Mevcut randevuları yükle
+load_randevular()
 
 # 📌 Kullanıcı randevu alma ekranı
-def user_page():
-    st.title("📅 Randevu Alma Sistemi")
+st.title("📅 Randevu Alma Sistemi")
 
-    ad = st.text_input("Adınız ve Soyadınız")
-    telefon = st.text_input("Telefon Numaranız")
-    tarih = st.date_input("Randevu Tarihi", min_value=datetime.today())
-    saat = st.time_input("Randevu Saati")
+ad = st.text_input("Adınız ve Soyadınız")
+telefon = st.text_input("Telefon Numaranız")
+tarih = st.date_input("Randevu Tarihi", min_value=datetime.today())
+
+# 📌 12:00 - 22:00 arasında her saat başı seçenekleri oluştur
+baslangic_saat = time(12, 0)
+bitis_saat = time(22, 0)
+saatler = []
+current_time = baslangic_saat
+
+while current_time < bitis_saat:
+    saatler.append(current_time.strftime("%H:%M"))
+    current_time = (datetime.combine(datetime.today(), current_time) + timedelta(hours=1)).time()
+
+# 📌 Daha önce alınan saatleri kaldır
+alinan_saatler = [r["saat"] for r in st.session_state.randevular if r["tarih"] == str(tarih)]
+uygun_saatler = [saat for saat in saatler if saat not in alinan_saatler]
+
+# 📌 Eğer tüm saatler doluysa
+if not uygun_saatler:
+    st.error("⚠️ Bu tarihte tüm saatler dolu! Lütfen başka bir gün seçin.")
+else:
+    saat = st.selectbox("Randevu Saati", uygun_saatler)
     masaj_turu = st.selectbox("Masaj Türü", ["Klasik Masaj (60 dk)", "Medikal Masaj (60 dk)", "Aromaterapi Masajı (60 dk)", "Thai Masajı", "Spor Masajı (50 dk)"])
 
     if st.button("📌 Randevu Al"):
         if ad and telefon:
             add_randevu(ad, telefon, tarih, saat, masaj_turu)
             st.success("✅ Randevunuz başarıyla alındı!")
+            st.experimental_rerun()
         else:
             st.error("⚠️ Lütfen tüm alanları doldurun.")
 
-    st.write("### 📌 Mevcut Randevularınız")
-    if st.session_state.randevular:
-        for r in st.session_state.randevular:
-            st.write(f"📅 {r['tarih']} 🕒 {r['saat']} - {r['masaj_turu']} ({r['durum']})")
-    else:
-        st.info("📭 Henüz randevunuz yok.")
-
-# 📌 Sayfa seçimi
-load_randevular()
-sayfa = st.sidebar.radio("Menü", ["Kullanıcı", "Admin"])
-if sayfa == "Kullanıcı":
-    user_page()
+# 📌 Mevcut randevuları listele
+st.write("### 📌 Mevcut Randevularınız")
+if st.session_state.randevular:
+    for r in st.session_state.randevular:
+        st.write(f"📅 {r['tarih']} 🕒 {r['saat']} - {r['masaj_turu']}")
 else:
-    admin_page()
+    st.info("📭 Henüz randevunuz yok.")
