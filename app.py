@@ -1,28 +1,38 @@
 import streamlit as st
-import pandas as pd
+import json
 from datetime import datetime
 import os
 
-CSV_FILE = "randevular.csv"
+JSON_FILE = "randevular.json"
 
-# CSV dosyasına randevu ekleme
+# JSON dosyasına randevu ekleme
 def save_randevu(ad, telefon, tarih, saat, masaj_turu):
-    if not os.path.exists(CSV_FILE):
+    if not os.path.exists(JSON_FILE):
         # Dosya yoksa, başlıkları da ekle
-        df = pd.DataFrame(columns=["id", "ad", "telefon", "tarih", "saat", "masaj_turu", "durum"])
-        df.to_csv(CSV_FILE, index=False)
+        with open(JSON_FILE, 'w') as f:
+            json.dump([], f)
     
     # En son id'yi al
-    df = pd.read_csv(CSV_FILE)
-    last_id = df["id"].max() if not df.empty else 0
+    with open(JSON_FILE, 'r') as f:
+        randevular = json.load(f)
     
+    last_id = randevular[-1]["id"] if randevular else 0
     new_id = last_id + 1
-    new_randevu = pd.DataFrame([[new_id, ad, telefon, tarih, saat, masaj_turu, "Beklemede"]],
-                               columns=["id", "ad", "telefon", "tarih", "saat", "masaj_turu", "durum"])
+    new_randevu = {
+        "id": new_id,
+        "ad": ad,
+        "telefon": telefon,
+        "tarih": str(tarih),
+        "saat": str(saat),
+        "masaj_turu": masaj_turu,
+        "durum": "Beklemede"
+    }
     
     # Yeni randevuyu ekle
-    df = pd.concat([df, new_randevu], ignore_index=True)
-    df.to_csv(CSV_FILE, index=False)
+    randevular.append(new_randevu)
+    
+    with open(JSON_FILE, 'w') as f:
+        json.dump(randevular, f)
 
 # Randevu alma kısmı
 st.title("Randevu Alma Sistemi")
@@ -42,11 +52,12 @@ if st.button("Randevu Al"):
 
 # Mevcut randevuları gösterme
 st.write("**Mevcut Randevularınız**")
-if os.path.exists(CSV_FILE):
-    randevular = pd.read_csv(CSV_FILE)
-    randevular_display = randevular[["tarih", "saat", "masaj_turu", "durum"]]
-    if not randevular_display.empty:
-        for _, r in randevular_display.iterrows():
+if os.path.exists(JSON_FILE):
+    with open(JSON_FILE, 'r') as f:
+        randevular = json.load(f)
+    
+    if randevular:
+        for r in randevular:
             st.write(f"📅 {r['tarih']} 🕒 {r['saat']} - {r['masaj_turu']} ({r['durum']})")
     else:
         st.info("Henüz randevunuz yok.")
