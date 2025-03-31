@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 import os
 
-JSON_FILE = "randevular.json"
+JSON_FILE = "https://masajostim.com.tr/randevular.json"
 
 # JSON dosyasına randevu ekleme
 def save_randevu(ad, telefon, tarih, saat, masaj_turu):
