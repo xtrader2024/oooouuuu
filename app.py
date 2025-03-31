@@ -12,10 +12,17 @@ def save_randevu(ad, telefon, tarih, saat, masaj_turu):
         with open(JSON_FILE, 'w') as f:
             json.dump([], f)
     
+    try:
+        # Verileri JSON dosyasından oku
+        with open(JSON_FILE, 'r') as f:
+            randevular = json.load(f)
+    except json.JSONDecodeError:
+        # JSON dosyası bozuksa, sıfırla
+        randevular = []
+        with open(JSON_FILE, 'w') as f:
+            json.dump(randevular, f)
+
     # En son id'yi al
-    with open(JSON_FILE, 'r') as f:
-        randevular = json.load(f)
-    
     last_id = randevular[-1]["id"] if randevular else 0
     new_id = last_id + 1
     new_randevu = {
@@ -53,13 +60,16 @@ if st.button("Randevu Al"):
 # Mevcut randevuları gösterme
 st.write("**Mevcut Randevularınız**")
 if os.path.exists(JSON_FILE):
-    with open(JSON_FILE, 'r') as f:
-        randevular = json.load(f)
-    
-    if randevular:
-        for r in randevular:
-            st.write(f"📅 {r['tarih']} 🕒 {r['saat']} - {r['masaj_turu']} ({r['durum']})")
-    else:
-        st.info("Henüz randevunuz yok.")
+    try:
+        with open(JSON_FILE, 'r') as f:
+            randevular = json.load(f)
+        
+        if randevular:
+            for r in randevular:
+                st.write(f"📅 {r['tarih']} 🕒 {r['saat']} - {r['masaj_turu']} ({r['durum']})")
+        else:
+            st.info("Henüz randevunuz yok.")
+    except json.JSONDecodeError:
+        st.error("Veri dosyası bozuk. Lütfen yöneticinize başvurun.")
 else:
     st.info("Henüz randevu kaydı yapılmamış.")
