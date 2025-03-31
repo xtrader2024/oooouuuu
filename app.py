@@ -69,7 +69,7 @@ else:
         if ad and telefon:
             add_randevu(ad, telefon, tarih, saat, masaj_turu)
             st.success("✅ Randevunuz başarıyla alındı!")
-            st.experimental_rerun()
+            st.rerun()  # ✅ Hata veren kodu düzelttim!
         else:
             st.error("⚠️ Lütfen tüm alanları doldurun.")
 
