@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import os
 
-JSON_FILE = "randevular.json"
+JSON_FILE = "https://masajostim.com.tr/randevular.json"
 
 # JSON dosyasından randevuları oku
 def get_randevular():
