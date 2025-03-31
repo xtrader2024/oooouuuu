@@ -58,9 +58,14 @@ while current_time < bitis_saat:
 alinan_saatler = [r["saat"] for r in st.session_state.randevular if r["tarih"] == str(tarih)]
 uygun_saatler = [saat for saat in saatler if saat not in alinan_saatler]
 
+# 📌 Bugünün tarihi seçildiyse, geçmiş saatleri kaldır
+if tarih == datetime.today().date():
+    simdiki_saat = datetime.now().time()
+    uygun_saatler = [saat for saat in uygun_saatler if datetime.strptime(saat, "%H:%M").time() > simdiki_saat]
+
 # 📌 Eğer tüm saatler doluysa
 if not uygun_saatler:
-    st.error("⚠️ Bu tarihte tüm saatler dolu! Lütfen başka bir gün seçin.")
+    st.error("⚠️ Bu tarihte tüm saatler dolu veya geçmiş saatler kapalı! Lütfen başka bir gün seçin.")
 else:
     saat = st.selectbox("Randevu Saati", uygun_saatler)
     masaj_turu = st.selectbox("Masaj Türü", ["Klasik Masaj (60 dk)", "Medikal Masaj (60 dk)", "Aromaterapi Masajı (60 dk)", "Thai Masajı", "Spor Masajı (50 dk)"])
@@ -69,7 +74,7 @@ else:
         if ad and telefon:
             add_randevu(ad, telefon, tarih, saat, masaj_turu)
             st.success("✅ Randevunuz başarıyla alındı!")
-            st.rerun()  # ✅ Hata veren kodu düzelttim!
+            st.rerun()
         else:
             st.error("⚠️ Lütfen tüm alanları doldurun.")
 
