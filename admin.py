@@ -1,42 +1,56 @@
 import streamlit as st
 import sqlite3
-from datetime import datetime
 
-# Veritabanı bağlantısı
-conn = sqlite3.connect("randevular.db", check_same_thread=False)
-c = conn.cursor()
+def get_appointments():
+    conn = sqlite3.connect("appointments.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, phone, date, time, massage_type, status FROM appointments")
+    data = cursor.fetchall()
+    conn.close()
+    return data
 
-# Randevu tablosunu oluşturma
-c.execute('''CREATE TABLE IF NOT EXISTS randevular
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-              ad TEXT, 
-              telefon TEXT, 
-              tarih TEXT, 
-              saat TEXT, 
-              masaj_turu TEXT, 
-              durum TEXT DEFAULT 'Beklemede')''')
-conn.commit()
+def update_appointment_status(appointment_id, status):
+    conn = sqlite3.connect("appointments.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE appointments SET status = ? WHERE id = ?", (status, appointment_id))
+    conn.commit()
+    conn.close()
 
-st.title("Randevu Alma Sistemi")
+def delete_appointment(appointment_id):
+    conn = sqlite3.connect("appointments.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
+    conn.commit()
+    conn.close()
 
-ad = st.text_input("Adınız ve Soyadınız")
-telefon = st.text_input("Telefon Numaranız")
-tarih = st.date_input("Randevu Tarihi", min_value=datetime.today())
-saat = st.time_input("Randevu Saati")
-masaj_turu = st.selectbox("Masaj Türü", ["Klasik Masaj (60 dk)", "Medikal Masaj (60 dk)", "Aromaterapi Masajı (60 dk)", "Thai Masajı", "Spor Masajı (50 dk)"])
+def admin_page():
+    st.title("Randevu Yönetim Paneli")
+    
+    appointments = get_appointments()
+    
+    if not appointments:
+        st.warning("Henüz randevu alınmamış.")
+        return
+    
+    for appointment in appointments:
+        id, name, phone, date, time, massage_type, status = appointment
+        with st.expander(f"{name} - {date} {time} ({massage_type}) [Durum: {status}]"):
+            st.write(f"**Telefon:** {phone}")
+            st.write(f"**Tarih:** {date}")
+            st.write(f"**Saat:** {time}")
+            st.write(f"**Masaj Türü:** {massage_type}")
+            
+            if status == "Beklemede":
+                if st.button("Onayla", key=f"approve_{id}"):
+                    update_appointment_status(id, "Onaylandı")
+                    st.experimental_rerun()
+                if st.button("İptal Et", key=f"cancel_{id}"):
+                    update_appointment_status(id, "İptal Edildi")
+                    st.experimental_rerun()
+            
+            if st.button("Sil", key=f"delete_{id}"):
+                delete_appointment(id)
+                st.experimental_rerun()
 
-if st.button("Randevu Al"):
-    if ad and telefon:
-        c.execute("INSERT INTO randevular (ad, telefon, tarih, saat, masaj_turu) VALUES (?, ?, ?, ?, ?)", (ad, telefon, tarih, saat, masaj_turu))
-        conn.commit()
-        st.success("Randevunuz başarıyla alındı!")
-    else:
-        st.error("Lütfen tüm alanları doldurun.")
-
-st.write("**Mevcut Randevularınız**")
-randevular = c.execute("SELECT tarih, saat, masaj_turu, durum FROM randevular").fetchall()
-if randevular:
-    for r in randevular:
-        st.write(f"📅 {r[0]} 🕒 {r[1]} - {r[2]} ({r[3]})")
-else:
-    st.info("Henüz randevunuz yok.")
+if __name__ == "__main__":
+    admin_page()
