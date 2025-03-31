@@ -1,15 +1,15 @@
 import streamlit as st
-import pandas as pd
+import json
 import os
 
-CSV_FILE = "randevular.csv"
+JSON_FILE = "randevular.json"
 
-# Verileri CSV dosyasından oku
+# Verileri JSON dosyasından oku
 def get_randevular():
-    if not os.path.exists(CSV_FILE):
+    if not os.path.exists(JSON_FILE):
         return []
-    df = pd.read_csv(CSV_FILE)
-    return df.to_dict(orient="records")
+    with open(JSON_FILE, 'r') as f:
+        return json.load(f)
 
 # Verileri güncelle
 def update_randevu_status(randevu_id, durum):
@@ -20,10 +20,10 @@ def update_randevu_status(randevu_id, durum):
             break
     save_randevular(randevular)
 
-# Verileri CSV dosyasına kaydet
+# Verileri JSON dosyasına kaydet
 def save_randevular(randevular):
-    df = pd.DataFrame(randevular)
-    df.to_csv(CSV_FILE, index=False)
+    with open(JSON_FILE, 'w') as f:
+        json.dump(randevular, f)
 
 # Randevu yönetim paneli
 def admin_page():
