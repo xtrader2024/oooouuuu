@@ -2,72 +2,59 @@ import streamlit as st
 import pandas as pd
 import os
 
-CSV_FILE = "appointments.csv"
+CSV_FILE = "randevular.csv"
 
-def get_appointments():
-    """CSV dosyasından randevuları oku"""
+# Verileri CSV dosyasından oku
+def get_randevular():
     if not os.path.exists(CSV_FILE):
         return []
-    
     df = pd.read_csv(CSV_FILE)
     return df.to_dict(orient="records")
 
-def save_appointments(appointments):
-    """Randevuları CSV dosyasına kaydet"""
-    df = pd.DataFrame(appointments)
+# Verileri güncelle
+def update_randevu_status(randevu_id, durum):
+    randevular = get_randevular()
+    for randevu in randevular:
+        if randevu['id'] == randevu_id:
+            randevu['durum'] = durum
+            break
+    save_randevular(randevular)
+
+# Verileri CSV dosyasına kaydet
+def save_randevular(randevular):
+    df = pd.DataFrame(randevular)
     df.to_csv(CSV_FILE, index=False)
 
-def update_appointment_status(appointment_id, status):
-    """Belirtilen randevunun durumunu güncelle"""
-    appointments = get_appointments()
-    for appointment in appointments:
-        if appointment["id"] == appointment_id:
-            appointment["status"] = status
-            break
-    save_appointments(appointments)
-
-def delete_appointment(appointment_id):
-    """Belirtilen randevuyu sil"""
-    appointments = get_appointments()
-    appointments = [appt for appt in appointments if appt["id"] != appointment_id]
-    save_appointments(appointments)
-
+# Randevu yönetim paneli
 def admin_page():
     st.title("Randevu Yönetim Paneli")
     
-    appointments = get_appointments()
+    randevular = get_randevular()
     
-    if not appointments:
+    if not randevular:
         st.warning("Henüz randevu alınmamış.")
         return
     
-    for appointment in appointments:
-        id, name, phone, date, time, massage_type, status = (
-            appointment["id"],
-            appointment["name"],
-            appointment["phone"],
-            appointment["date"],
-            appointment["time"],
-            appointment["massage_type"],
-            appointment["status"]
-        )
+    for randevu in randevular:
+        id, ad, telefon, tarih, saat, masaj_turu, durum = randevu["id"], randevu["ad"], randevu["telefon"], randevu["tarih"], randevu["saat"], randevu["masaj_turu"], randevu["durum"]
+        with st.expander(f"{ad} - {tarih} {saat} ({masaj_turu}) [Durum: {durum}]"):
+            st.write(f"**Telefon:** {telefon}")
+            st.write(f"**Tarih:** {tarih}")
+            st.write(f"**Saat:** {saat}")
+            st.write(f"**Masaj Türü:** {masaj_turu}")
+            
+            if durum == "Beklemede":
+                if st.button(f"Onayla ({id})"):
+                    update_randevu_status(id, "Onaylandı")
+                    st.experimental_rerun()
+                if st.button(f"İptal Et ({id})"):
+                    update_randevu_status(id, "İptal Edildi")
+                    st.experimental_rerun()
 
-        with st.expander(f"{name} - {date} {time} ({massage_type}) [Durum: {status}]"):
-            st.write(f"**Telefon:** {phone}")
-            st.write(f"**Tarih:** {date}")
-            st.write(f"**Saat:** {time}")
-            st.write(f"**Masaj Türü:** {massage_type}")
-            
-            if status == "Beklemede":
-                if st.button("Onayla", key=f"approve_{id}"):
-                    update_appointment_status(id, "Onaylandı")
-                    st.experimental_rerun()
-                if st.button("İptal Et", key=f"cancel_{id}"):
-                    update_appointment_status(id, "İptal Edildi")
-                    st.experimental_rerun()
-            
-            if st.button("Sil", key=f"delete_{id}"):
-                delete_appointment(id)
+            if st.button(f"Sil ({id})"):
+                randevular = get_randevular()
+                randevular = [r for r in randevular if r["id"] != id]
+                save_randevular(randevular)
                 st.experimental_rerun()
 
 if __name__ == "__main__":
