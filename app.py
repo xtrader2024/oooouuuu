@@ -38,6 +38,28 @@ def add_randevu(ad, telefon, tarih, saat, masaj_turu):
 load_randevular()
 
 # 📌 Kullanıcı randevu alma ekranı
+st.markdown(
+    """
+    <style>
+    body {
+        font-size: 18px;
+    }
+    .stTextInput, .stDateInput, .stTimeInput, .stSelectbox {
+        font-size: 20px !important;
+    }
+    .stButton button {
+        width: 100%;
+        padding: 15px;
+        font-size: 20px;
+    }
+    .stSuccess, .stError {
+        font-size: 18px;
+    }
+    </style>
+    """, 
+    unsafe_allow_html=True
+)
+
 st.title("📅 Randevu Alma Sistemi")
 
 ad = st.text_input("Adınız ve Soyadınız")
@@ -82,6 +104,10 @@ else:
 st.write("### 📌 Mevcut Randevularınız")
 if st.session_state.randevular:
     for r in st.session_state.randevular:
-        st.write(f"📅 {r['tarih']} 🕒 {r['saat']} - {r['masaj_turu']}")
+        st.markdown(f"""
+        <div style="padding: 10px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 10px; font-size: 18px;">
+        📅 {r['tarih']} 🕒 {r['saat']} - {r['masaj_turu']}
+        </div>
+        """, unsafe_allow_html=True)
 else:
     st.info("📭 Henüz randevunuz yok.")
