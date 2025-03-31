@@ -4,58 +4,75 @@ import os
 
 JSON_FILE = "randevular.json"
 
-# Verileri JSON dosyasından oku
+# JSON dosyasından randevuları oku
 def get_randevular():
     if not os.path.exists(JSON_FILE):
         return []
-    with open(JSON_FILE, 'r') as f:
-        return json.load(f)
+    
+    try:
+        with open(JSON_FILE, 'r') as f:
+            randevular = json.load(f)
+        return randevular
+    except json.JSONDecodeError:
+        return []  # Dosya bozuksa boş liste dön
 
-# Verileri güncelle
-def update_randevu_status(randevu_id, durum):
+# Randevu durumunu güncelle
+def update_randevu_status(randevu_id, yeni_durum):
     randevular = get_randevular()
-    for randevu in randevular:
-        if randevu['id'] == randevu_id:
-            randevu['durum'] = durum
+    
+    for r in randevular:
+        if r["id"] == randevu_id:
+            r["durum"] = yeni_durum
             break
-    save_randevular(randevular)
-
-# Verileri JSON dosyasına kaydet
-def save_randevular(randevular):
+    
     with open(JSON_FILE, 'w') as f:
         json.dump(randevular, f)
 
-# Randevu yönetim paneli
-def admin_page():
-    st.title("Randevu Yönetim Paneli")
-    
+# Randevuyu sil
+def delete_randevu(randevu_id):
     randevular = get_randevular()
     
+    # Seçilen randevuyu listeden kaldır
+    randevular = [r for r in randevular if r["id"] != randevu_id]
+    
+    with open(JSON_FILE, 'w') as f:
+        json.dump(randevular, f)
+
+# Admin paneli
+def admin_page():
+    st.title("🛠️ Randevu Yönetim Paneli")
+
+    randevular = get_randevular()
+
     if not randevular:
         st.warning("Henüz randevu alınmamış.")
         return
-    
+
     for randevu in randevular:
         id, ad, telefon, tarih, saat, masaj_turu, durum = randevu["id"], randevu["ad"], randevu["telefon"], randevu["tarih"], randevu["saat"], randevu["masaj_turu"], randevu["durum"]
-        with st.expander(f"{ad} - {tarih} {saat} ({masaj_turu}) [Durum: {durum}]"):
-            st.write(f"**Telefon:** {telefon}")
-            st.write(f"**Tarih:** {tarih}")
-            st.write(f"**Saat:** {saat}")
-            st.write(f"**Masaj Türü:** {masaj_turu}")
-            
-            if durum == "Beklemede":
-                if st.button(f"Onayla ({id})"):
-                    update_randevu_status(id, "Onaylandı")
-                    st.experimental_rerun()
-                if st.button(f"İptal Et ({id})"):
-                    update_randevu_status(id, "İptal Edildi")
-                    st.experimental_rerun()
+        
+        with st.expander(f"📅 {tarih} 🕒 {saat} - {ad} ({masaj_turu}) [Durum: {durum}]"):
+            st.write(f"📞 **Telefon:** {telefon}")
+            st.write(f"📝 **Masaj Türü:** {masaj_turu}")
 
-            if st.button(f"Sil ({id})"):
-                randevular = get_randevular()
-                randevular = [r for r in randevular if r["id"] != id]
-                save_randevular(randevular)
-                st.experimental_rerun()
+            # Beklemede olan randevular için işlem butonları
+            if durum == "Beklemede":
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    if st.button(f"✅ Onayla {id}"):
+                        update_randevu_status(id, "Onaylandı")
+                        st.experimental_rerun()
+                
+                with col2:
+                    if st.button(f"❌ İptal Et {id}"):
+                        update_randevu_status(id, "İptal Edildi")
+                        st.experimental_rerun()
+                
+                with col3:
+                    if st.button(f"🗑️ Sil {id}"):
+                        delete_randevu(id)
+                        st.experimental_rerun()
 
 if __name__ == "__main__":
     admin_page()
