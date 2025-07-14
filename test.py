@@ -252,7 +252,7 @@ def process_symbol(symbol, interval, start_str, end_str, exchange):
         expected_price, expected_increase_percentage = calculate_expected_price(df)
         entry_price, take_profit_price, stop_loss_price = calculate_trade_levels(df)
         
-        if df['Buy_Signal'].iloc[-1] and expected_increase_percentage >= 5:
+        if df['Buy_Signal'].iloc[-1] and expected_increase_percentage >= 10:
             return {
                 'coin_name': symbol,
                 'price': df['close'].iloc[-1],
